@@ -1,1 +1,59 @@
-# activityControlUniversity
+# Sistema de Control de Actividades POA (Google Apps Script)
+
+Este repositorio contiene una base funcional para gestionar actividades POA por coordinación en Google Sheets + Apps Script.
+
+## Qué hace
+
+- Autentica al coordinador por correo institucional (`Session.getActiveUser().getEmail()`).
+- Muestra actividades **pendientes** y **realizadas** por coordinación.
+- Permite registrar ejecución/finalización de actividades con:
+  - fecha, hora inicio, hora fin,
+  - mes y semana (calculados automáticamente),
+  - participantes por sexo y rol,
+  - tipo de actividad, objetivo, carreras, área del conocimiento, tipo de protagonista,
+  - evidencias fotográficas.
+- Guarda registros en la hoja `Registros`.
+- Organiza evidencias en Google Drive:
+  - Carpeta raíz configurable.
+  - Subcarpeta por indicador POA.
+  - Subcarpeta por coordinación dentro del indicador.
+
+## Estructura de hojas
+
+La función `initializeSheets()` crea (si no existen) estas hojas y cabeceras:
+
+1. `ActividadesPOA`
+   - `anio`, `actividadId`, `coordinacion`, `actividad`, `indicadorPoa`, `ejeEne`, `areasInvolucradas`, `cuatrimestre`
+2. `Coordinadores`
+   - `coordinacion`, `correo`, `activo`
+3. `Registros`
+   - Campos de control, tiempos, participantes, metadatos de actividad y URLs de evidencias.
+4. `Listas`
+   - `lista`, `valor`
+
+## Listas esperadas en `Listas`
+
+Use la columna `lista` para agrupar y `valor` para cada opción. Ejemplos:
+
+- `ejeEne`: `Eje 1. Educación para la vida`, etc.
+- `indicadorPoa`: `2. Porcentaje de carreras...`, etc.
+- `tipoActividad`: `Curricular`, `Formación continua`, `Participación en programas nacionales`, `Tecnologías`.
+- `tipoProtagonista`: `Estudiante`, `Docente`, `Personal administrativo`, `Servidores públicos`, etc.
+
+## Configuración rápida
+
+1. Crear un proyecto de Apps Script vinculado a una hoja de cálculo.
+2. Copiar `Code.gs`, `Index.html` y `appsscript.json`.
+3. En `Code.gs`, configurar:
+   - `DRIVE_ROOT_FOLDER_ID` con el ID de carpeta raíz para evidencias.
+4. Ejecutar manualmente `initializeSheets()` una vez.
+5. Cargar datos en `ActividadesPOA`, `Coordinadores` y `Listas`.
+6. Desplegar como **Web App**:
+   - Ejecutar como: *Usuario que accede*.
+   - Acceso: según política institucional (ideal: dominio institucional).
+
+## Notas importantes
+
+- Para que `Session.getActiveUser().getEmail()` retorne correo, la app debe operar bajo políticas de dominio (Workspace).
+- Si el correo no existe en `Coordinadores` o está inactivo (`activo = false`), el acceso se bloquea.
+- Si no configura `DRIVE_ROOT_FOLDER_ID`, la carga de fotos falla por diseño.

@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <base target="_top" />
+    <style>
+      body { font-family: Arial, sans-serif; margin: 24px; background: #f6f7fb; }
+      .card { background: white; padding: 16px; border-radius: 12px; margin-bottom: 16px; box-shadow: 0 2px 8px rgba(0,0,0,.08); }
+      h1, h2 { margin-top: 0; }
+      .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+      label { display: block; font-size: 12px; color: #666; margin-top: 8px; }
+      input, select, textarea { width: 100%; padding: 8px; box-sizing: border-box; }
+      button { background: #0b57d0; color: white; border: 0; padding: 10px 16px; border-radius: 8px; cursor: pointer; }
+      ul { margin: 0; padding-left: 20px; }
+      .muted { color: #666; }
+      .ok { color: #1e8e3e; }
+      .err { color: #c5221f; }
+    </style>
+  </head>
+  <body>
+    <div class="card">
+      <h1>Control de Actividades POA</h1>
+      <p id="userInfo" class="muted">Cargando...</p>
+    </div>
+
+    <div class="grid">
+      <div class="card">
+        <h2>Actividades pendientes</h2>
+        <ul id="pendingList"></ul>
+      </div>
+      <div class="card">
+        <h2>Actividades realizadas</h2>
+        <ul id="doneList"></ul>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>Registrar actividad</h2>
+      <form id="registroForm">
+        <label>Actividad</label>
+        <select id="actividadId" required></select>
+
+        <label>Estado</label>
+        <select id="estado" required>
+          <option value="En ejecución">En ejecución</option>
+          <option value="Finalizada">Finalizada</option>
+        </select>
+
+        <div class="grid">
+          <div>
+            <label>Fecha</label>
+            <input id="fechaActividad" type="date" required />
+          </div>
+          <div>
+            <label>Hora inicio</label>
+            <input id="horaInicio" type="time" required />
+          </div>
+        </div>
+
+        <label>Hora fin</label>
+        <input id="horaFin" type="time" required />
+
+        <label>Tipo de actividad</label>
+        <select id="tipoActividad" required></select>
+
+        <label>Objetivo</label>
+        <textarea id="objetivoActividad" required></textarea>
+
+        <label>Carreras involucradas</label>
+        <input id="carrerasInvolucradas" type="text" />
+
+        <label>Área del conocimiento</label>
+        <input id="areaConocimiento" type="text" />
+
+        <label>Tipo de protagonista</label>
+        <select id="tipoProtagonista"></select>
+
+        <div class="grid">
+          <div><label># alumnos hombres</label><input id="alumnosHombres" type="number" min="0" value="0" /></div>
+          <div><label># alumnas mujeres</label><input id="alumnasMujeres" type="number" min="0" value="0" /></div>
+          <div><label># docentes hombres</label><input id="docentesHombres" type="number" min="0" value="0" /></div>
+          <div><label># docentes mujeres</label><input id="docentesMujeres" type="number" min="0" value="0" /></div>
+          <div><label># administrativos hombres</label><input id="administrativosHombres" type="number" min="0" value="0" /></div>
+          <div><label># administrativas mujeres</label><input id="administrativasMujeres" type="number" min="0" value="0" /></div>
+        </div>
+
+        <label>Fotos (opcional)</label>
+        <input id="fotos" type="file" multiple accept="image/*" />
+
+        <br /><br />
+        <button type="submit">Guardar registro</button>
+        <p id="result"></p>
+      </form>
+    </div>
+
+    <script>
+      let initialData = null;
+
+      function optionize(selectId, values) {
+        const select = document.getElementById(selectId);
+        select.innerHTML = (values || []).map(v => `<option value="${v}">${v}</option>`).join('');
+      }
+
+      function renderActivities(listId, activities) {
+        const ul = document.getElementById(listId);
+        if (!activities.length) {
+          ul.innerHTML = '<li class="muted">Sin datos</li>';
+          return;
+        }
+        ul.innerHTML = activities
+          .map((a) => `<li><strong>${a.actividadId}</strong> - ${a.actividad} <span class="muted">(${a.indicadorPoa})</span></li>`)
+          .join('');
+      }
+
+      function toBase64(file) {
+        return new Promise((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onload = () => resolve(String(reader.result).split(',')[1]);
+          reader.onerror = reject;
+          reader.readAsDataURL(file);
+        });
+      }
+
+      google.script.run
+        .withSuccessHandler((data) => {
+          initialData = data;
+          document.getElementById('userInfo').textContent = `${data.userEmail} | ${data.coordinacion}`;
+          renderActivities('pendingList', data.actividadesPendientes);
+          renderActivities('doneList', data.actividadesCompletadas);
+
+          optionize('actividadId', data.actividadesPendientes.concat(data.actividadesCompletadas).map(a => a.actividadId));
+          optionize('tipoActividad', data.listas.tipoActividad || []);
+          optionize('tipoProtagonista', data.listas.tipoProtagonista || []);
+        })
+        .withFailureHandler((err) => {
+          document.getElementById('userInfo').textContent = err.message;
+          document.getElementById('userInfo').className = 'err';
+        })
+        .getInitialData();
+
+      document.getElementById('registroForm').addEventListener('submit', async (event) => {
+        event.preventDefault();
+        const result = document.getElementById('result');
+        result.textContent = 'Guardando...';
+        result.className = 'muted';
+
+        const files = Array.from(document.getElementById('fotos').files || []);
+        const fotos = [];
+        for (const file of files) {
+          fotos.push({
+            fileName: file.name,
+            mimeType: file.type,
+            base64: await toBase64(file)
+          });
+        }
+
+        const payload = {
+          actividadId: document.getElementById('actividadId').value,
+          estado: document.getElementById('estado').value,
+          fechaActividad: document.getElementById('fechaActividad').value,
+          horaInicio: document.getElementById('horaInicio').value,
+          horaFin: document.getElementById('horaFin').value,
+          alumnosHombres: document.getElementById('alumnosHombres').value,
+          alumnasMujeres: document.getElementById('alumnasMujeres').value,
+          docentesHombres: document.getElementById('docentesHombres').value,
+          docentesMujeres: document.getElementById('docentesMujeres').value,
+          administrativosHombres: document.getElementById('administrativosHombres').value,
+          administrativasMujeres: document.getElementById('administrativasMujeres').value,
+          tipoActividad: document.getElementById('tipoActividad').value,
+          objetivoActividad: document.getElementById('objetivoActividad').value,
+          carrerasInvolucradas: document.getElementById('carrerasInvolucradas').value,
+          areaConocimiento: document.getElementById('areaConocimiento').value,
+          tipoProtagonista: document.getElementById('tipoProtagonista').value,
+          fotos
+        };
+
+        google.script.run
+          .withSuccessHandler((res) => {
+            result.textContent = `Registro guardado (${res.registroId})`;
+            result.className = 'ok';
+          })
+          .withFailureHandler((err) => {
+            result.textContent = err.message;
+            result.className = 'err';
+          })
+          .registrarActividad(payload);
+      });
+    </script>
+  </body>
+</html>
