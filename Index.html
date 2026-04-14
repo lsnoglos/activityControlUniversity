@@ -2,94 +2,267 @@
 <html>
   <head>
     <base target="_top" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
     <style>
-      body { font-family: Arial, sans-serif; margin: 24px; background: #f6f7fb; }
-      .card { background: white; padding: 16px; border-radius: 12px; margin-bottom: 16px; box-shadow: 0 2px 8px rgba(0,0,0,.08); }
-      h1, h2 { margin-top: 0; }
-      .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
-      label { display: block; font-size: 12px; color: #666; margin-top: 8px; }
-      input, select, textarea { width: 100%; padding: 8px; box-sizing: border-box; }
-      button { background: #0b57d0; color: white; border: 0; padding: 10px 16px; border-radius: 8px; cursor: pointer; }
-      ul { margin: 0; padding-left: 20px; }
-      .muted { color: #666; }
-      .ok { color: #1e8e3e; }
-      .err { color: #c5221f; }
+      :root {
+        --bg: #f4f7fb;
+        --surface: #ffffff;
+        --surface-muted: #f8faff;
+        --text: #10223d;
+        --muted: #5f6f86;
+        --primary: #0b3a75;
+        --primary-2: #1f5fb5;
+        --accent: #0d7a5f;
+        --ok: #137b3f;
+        --err: #b42318;
+        --border: #d8e1ef;
+        --shadow: 0 14px 35px rgba(16, 34, 61, 0.08);
+      }
+
+      * { box-sizing: border-box; }
+
+      body {
+        margin: 0;
+        padding: 20px;
+        font-family: Inter, Segoe UI, Roboto, Arial, sans-serif;
+        background:
+          radial-gradient(circle at top right, #e3ecfb 0, transparent 35%),
+          radial-gradient(circle at top left, #d7f0ea 0, transparent 32%),
+          var(--bg);
+        color: var(--text);
+      }
+
+      .page {
+        max-width: 1120px;
+        margin: 0 auto;
+        display: grid;
+        gap: 16px;
+      }
+
+      .card {
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: 16px;
+        padding: 18px;
+        box-shadow: var(--shadow);
+      }
+
+      .hero {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 12px;
+        justify-content: space-between;
+        align-items: center;
+        background: linear-gradient(125deg, var(--primary), var(--primary-2));
+        color: #fff;
+        border: none;
+      }
+
+      h1, h2 {
+        margin: 0;
+        line-height: 1.2;
+      }
+
+      h1 { font-size: clamp(1.35rem, 2vw, 1.85rem); }
+      h2 { font-size: clamp(1.05rem, 1.5vw, 1.25rem); margin-bottom: 10px; }
+
+      .user-chip {
+        padding: 8px 12px;
+        border-radius: 999px;
+        background: rgba(255,255,255,0.16);
+        border: 1px solid rgba(255,255,255,0.28);
+        font-size: 0.9rem;
+      }
+
+      .grid {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 16px;
+      }
+
+      .stats-list {
+        list-style: none;
+        margin: 0;
+        padding: 0;
+        display: grid;
+        gap: 8px;
+      }
+
+      .stats-list li {
+        padding: 10px 12px;
+        border-radius: 10px;
+        background: var(--surface-muted);
+        border: 1px solid var(--border);
+        font-size: 0.95rem;
+      }
+
+      .muted { color: var(--muted); }
+
+      .form-grid {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 12px;
+      }
+
+      .form-grid.triple {
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+      }
+
+      .field {
+        display: grid;
+        gap: 6px;
+      }
+
+      label {
+        font-size: 0.84rem;
+        font-weight: 600;
+        color: var(--muted);
+      }
+
+      input, select, textarea {
+        width: 100%;
+        border: 1px solid var(--border);
+        border-radius: 10px;
+        padding: 10px 11px;
+        font: inherit;
+        color: var(--text);
+        background: #fff;
+      }
+
+      input:focus, select:focus, textarea:focus {
+        outline: 3px solid rgba(31, 95, 181, 0.18);
+        border-color: var(--primary-2);
+      }
+
+      textarea { min-height: 96px; resize: vertical; }
+
+      .actions {
+        display: flex;
+        gap: 10px;
+        align-items: center;
+        margin-top: 14px;
+      }
+
+      button {
+        border: 0;
+        border-radius: 10px;
+        padding: 11px 16px;
+        background: linear-gradient(125deg, var(--accent), #11926f);
+        color: #fff;
+        font-weight: 600;
+        cursor: pointer;
+      }
+
+      button:hover { filter: brightness(1.05); }
+
+      .ok { color: var(--ok); font-weight: 600; }
+      .err { color: var(--err); font-weight: 600; }
+
+      @media (max-width: 900px) {
+        body { padding: 14px; }
+        .grid,
+        .form-grid,
+        .form-grid.triple {
+          grid-template-columns: 1fr;
+        }
+      }
     </style>
   </head>
   <body>
-    <div class="card">
-      <h1>Control de Actividades POA</h1>
-      <p id="userInfo" class="muted">Cargando...</p>
-    </div>
-
-    <div class="grid">
-      <div class="card">
-        <h2>Actividades pendientes</h2>
-        <ul id="pendingList"></ul>
+    <div class="page">
+      <div class="card hero">
+        <h1>Control de Actividades POA</h1>
+        <p id="userInfo" class="user-chip">Cargando...</p>
       </div>
-      <div class="card">
-        <h2>Actividades realizadas</h2>
-        <ul id="doneList"></ul>
+
+      <div class="grid">
+        <div class="card">
+          <h2>Actividades pendientes</h2>
+          <ul id="pendingList" class="stats-list"></ul>
+        </div>
+        <div class="card">
+          <h2>Actividades realizadas</h2>
+          <ul id="doneList" class="stats-list"></ul>
+        </div>
       </div>
-    </div>
 
-    <div class="card">
-      <h2>Registrar actividad</h2>
-      <form id="registroForm">
-        <label>Actividad</label>
-        <select id="actividadId" required></select>
-
-        <label>Estado</label>
-        <select id="estado" required>
-          <option value="En ejecución">En ejecución</option>
-          <option value="Finalizada">Finalizada</option>
-        </select>
-
-        <div class="grid">
-          <div>
-            <label>Fecha</label>
-            <input id="fechaActividad" type="date" required />
+      <div class="card">
+        <h2>Registrar actividad</h2>
+        <form id="registroForm">
+          <div class="field">
+            <label>Actividad</label>
+            <select id="actividadId" required></select>
           </div>
-          <div>
-            <label>Hora inicio</label>
-            <input id="horaInicio" type="time" required />
+
+          <div class="form-grid">
+            <div class="field">
+              <label>Estado</label>
+              <select id="estado" required>
+                <option value="En ejecución">En ejecución</option>
+                <option value="Finalizada">Finalizada</option>
+              </select>
+            </div>
+            <div class="field">
+              <label>Fecha</label>
+              <input id="fechaActividad" type="date" required />
+            </div>
+            <div class="field">
+              <label>Hora inicio</label>
+              <input id="horaInicio" type="time" required />
+            </div>
+            <div class="field">
+              <label>Hora fin</label>
+              <input id="horaFin" type="time" required />
+            </div>
           </div>
-        </div>
 
-        <label>Hora fin</label>
-        <input id="horaFin" type="time" required />
+          <div class="form-grid">
+            <div class="field">
+              <label>Tipo de actividad</label>
+              <select id="tipoActividad" required></select>
+            </div>
+            <div class="field">
+              <label>Tipo de protagonista</label>
+              <select id="tipoProtagonista"></select>
+            </div>
+          </div>
 
-        <label>Tipo de actividad</label>
-        <select id="tipoActividad" required></select>
+          <div class="field">
+            <label>Objetivo</label>
+            <textarea id="objetivoActividad" required></textarea>
+          </div>
 
-        <label>Objetivo</label>
-        <textarea id="objetivoActividad" required></textarea>
+          <div class="form-grid">
+            <div class="field">
+              <label>Carreras involucradas</label>
+              <input id="carrerasInvolucradas" type="text" />
+            </div>
+            <div class="field">
+              <label>Área del conocimiento</label>
+              <input id="areaConocimiento" type="text" />
+            </div>
+          </div>
 
-        <label>Carreras involucradas</label>
-        <input id="carrerasInvolucradas" type="text" />
+          <div class="form-grid triple">
+            <div class="field"><label># alumnos hombres</label><input id="alumnosHombres" type="number" min="0" value="0" /></div>
+            <div class="field"><label># alumnas mujeres</label><input id="alumnasMujeres" type="number" min="0" value="0" /></div>
+            <div class="field"><label># docentes hombres</label><input id="docentesHombres" type="number" min="0" value="0" /></div>
+            <div class="field"><label># docentes mujeres</label><input id="docentesMujeres" type="number" min="0" value="0" /></div>
+            <div class="field"><label># administrativos hombres</label><input id="administrativosHombres" type="number" min="0" value="0" /></div>
+            <div class="field"><label># administrativas mujeres</label><input id="administrativasMujeres" type="number" min="0" value="0" /></div>
+          </div>
 
-        <label>Área del conocimiento</label>
-        <input id="areaConocimiento" type="text" />
+          <div class="field">
+            <label>Fotos (opcional)</label>
+            <input id="fotos" type="file" multiple accept="image/*" />
+          </div>
 
-        <label>Tipo de protagonista</label>
-        <select id="tipoProtagonista"></select>
-
-        <div class="grid">
-          <div><label># alumnos hombres</label><input id="alumnosHombres" type="number" min="0" value="0" /></div>
-          <div><label># alumnas mujeres</label><input id="alumnasMujeres" type="number" min="0" value="0" /></div>
-          <div><label># docentes hombres</label><input id="docentesHombres" type="number" min="0" value="0" /></div>
-          <div><label># docentes mujeres</label><input id="docentesMujeres" type="number" min="0" value="0" /></div>
-          <div><label># administrativos hombres</label><input id="administrativosHombres" type="number" min="0" value="0" /></div>
-          <div><label># administrativas mujeres</label><input id="administrativasMujeres" type="number" min="0" value="0" /></div>
-        </div>
-
-        <label>Fotos (opcional)</label>
-        <input id="fotos" type="file" multiple accept="image/*" />
-
-        <br /><br />
-        <button type="submit">Guardar registro</button>
-        <p id="result"></p>
-      </form>
+          <div class="actions">
+            <button type="submit">Guardar registro</button>
+            <p id="result" class="muted"></p>
+          </div>
+        </form>
+      </div>
     </div>
 
     <script>
