@@ -180,24 +180,25 @@
         Pide al admin que te le de acceso a tu correo institucional.
       </p>
 
-      <div id="summaryGrid" class="grid hidden">
-        <div class="card">
-          <h2>Actividades pendientes</h2>
-          <ul id="pendingList" class="stats-list"></ul>
-        </div>
-        <div class="card">
-          <h2>Actividades realizadas</h2>
-          <ul id="doneList" class="stats-list"></ul>
-        </div>
-      </div>
-
-      <div id="registroCard" class="card hidden">
-        <h2>Registrar actividad</h2>
-        <form id="registroForm">
-          <div class="field">
-            <label>Actividad</label>
-            <select id="actividadId" required></select>
+      <div id="authorizedContent" class="hidden">
+        <div id="summaryGrid" class="grid">
+          <div class="card">
+            <h2>Actividades pendientes</h2>
+            <ul id="pendingList" class="stats-list"></ul>
           </div>
+          <div class="card">
+            <h2>Actividades realizadas</h2>
+            <ul id="doneList" class="stats-list"></ul>
+          </div>
+        </div>
+
+        <div id="registroCard" class="card">
+          <h2>Registrar actividad</h2>
+          <form id="registroForm">
+            <div class="field">
+              <label>Actividad</label>
+              <select id="actividadId" required></select>
+            </div>
 
           <div class="form-grid">
             <div class="field">
@@ -262,20 +263,20 @@
             <input id="fotos" type="file" multiple accept="image/*" />
           </div>
 
-          <div class="actions">
-            <button type="submit">Guardar registro</button>
-            <p id="result" class="muted"></p>
-          </div>
-        </form>
+            <div class="actions">
+              <button type="submit">Guardar registro</button>
+              <p id="result" class="muted"></p>
+            </div>
+          </form>
+        </div>
       </div>
     </div>
 
     <script>
       let initialData = null;
 
-      function setContentVisibility({ showSummary, showForm, showHelp }) {
-        document.getElementById('summaryGrid').classList.toggle('hidden', !showSummary);
-        document.getElementById('registroCard').classList.toggle('hidden', !showForm);
+      function setContentVisibility({ showAuthorizedContent, showHelp }) {
+        document.getElementById('authorizedContent').classList.toggle('hidden', !showAuthorizedContent);
         document.getElementById('accessHelp').style.display = showHelp ? 'block' : 'none';
       }
 
@@ -306,9 +307,18 @@
 
       google.script.run
         .withSuccessHandler((data) => {
-          setContentVisibility({ showSummary: true, showForm: true, showHelp: false });
+          if (!data || data.authorized !== true) {
+            const noAccessMessage = (data && data.message) || 'Tu correo no tiene acceso.';
+            document.getElementById('userInfo').textContent = `Error: ${noAccessMessage}`;
+            document.getElementById('userInfo').className = 'err';
+            setContentVisibility({ showAuthorizedContent: false, showHelp: true });
+            return;
+          }
+
+          setContentVisibility({ showAuthorizedContent: true, showHelp: false });
           initialData = data;
           document.getElementById('userInfo').textContent = `${data.userEmail} | ${data.coordinacion}`;
+          document.getElementById('userInfo').className = 'user-chip';
           renderActivities('pendingList', data.actividadesPendientes);
           renderActivities('doneList', data.actividadesCompletadas);
 
@@ -317,21 +327,17 @@
           optionize('tipoProtagonista', data.listas.tipoProtagonista || []);
         })
         .withFailureHandler((err) => {
-          document.getElementById('userInfo').textContent = err.message;
+          document.getElementById('userInfo').textContent = err.message || 'Error al cargar la página.';
           document.getElementById('userInfo').className = 'err';
-
-          const isNoAccess = (err && err.message || '').toLowerCase().includes('no tiene acceso');
-          if (isNoAccess) {
-            setContentVisibility({ showSummary: false, showForm: false, showHelp: true });
-            return;
-          }
-
-          setContentVisibility({ showSummary: false, showForm: false, showHelp: false });
+          setContentVisibility({ showAuthorizedContent: false, showHelp: false });
         })
         .getInitialData();
 
       document.getElementById('registroForm').addEventListener('submit', async (event) => {
         event.preventDefault();
+        if (!initialData || !initialData.authorized) {
+          return;
+        }
         const result = document.getElementById('result');
         result.textContent = 'Guardando...';
         result.className = 'muted';
