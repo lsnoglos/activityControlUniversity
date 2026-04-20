@@ -97,6 +97,7 @@
       }
 
       .muted { color: var(--muted); }
+      .hidden { display: none !important; }
 
       .form-grid {
         display: grid;
@@ -179,7 +180,7 @@
         Pide al admin que te le de acceso a tu correo institucional.
       </p>
 
-      <div class="grid">
+      <div id="summaryGrid" class="grid hidden">
         <div class="card">
           <h2>Actividades pendientes</h2>
           <ul id="pendingList" class="stats-list"></ul>
@@ -190,7 +191,7 @@
         </div>
       </div>
 
-      <div id="registroCard" class="card">
+      <div id="registroCard" class="card hidden">
         <h2>Registrar actividad</h2>
         <form id="registroForm">
           <div class="field">
@@ -272,6 +273,12 @@
     <script>
       let initialData = null;
 
+      function setContentVisibility({ showSummary, showForm, showHelp }) {
+        document.getElementById('summaryGrid').classList.toggle('hidden', !showSummary);
+        document.getElementById('registroCard').classList.toggle('hidden', !showForm);
+        document.getElementById('accessHelp').style.display = showHelp ? 'block' : 'none';
+      }
+
       function optionize(selectId, values) {
         const select = document.getElementById(selectId);
         select.innerHTML = (values || []).map(v => `<option value="${v}">${v}</option>`).join('');
@@ -299,8 +306,7 @@
 
       google.script.run
         .withSuccessHandler((data) => {
-          document.getElementById('registroCard').style.display = '';
-          document.getElementById('accessHelp').style.display = 'none';
+          setContentVisibility({ showSummary: true, showForm: true, showHelp: false });
           initialData = data;
           document.getElementById('userInfo').textContent = `${data.userEmail} | ${data.coordinacion}`;
           renderActivities('pendingList', data.actividadesPendientes);
@@ -316,9 +322,11 @@
 
           const isNoAccess = (err && err.message || '').toLowerCase().includes('no tiene acceso');
           if (isNoAccess) {
-            document.getElementById('registroCard').style.display = 'none';
-            document.getElementById('accessHelp').style.display = 'block';
+            setContentVisibility({ showSummary: false, showForm: false, showHelp: true });
+            return;
           }
+
+          setContentVisibility({ showSummary: false, showForm: false, showHelp: false });
         })
         .getInitialData();
 
