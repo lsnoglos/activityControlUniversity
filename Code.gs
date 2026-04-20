@@ -72,7 +72,11 @@ function getInitialData() {
   const userEmail = Session.getActiveUser().getEmail();
   const coordinador = getCoordinatorByEmail_(userEmail);
   if (!coordinador) {
-    throw new Error(`El correo ${userEmail} no tiene acceso.`);
+    return {
+      authorized: false,
+      userEmail,
+      message: `El correo ${userEmail} no tiene acceso.`
+    };
   }
 
   const actividades = getActivitiesByCoordination_(coordinador.coordinacion);
@@ -89,6 +93,7 @@ function getInitialData() {
   );
 
   return {
+    authorized: true,
     userEmail,
     coordinacion: coordinador.coordinacion,
     actividadesPendientes,
