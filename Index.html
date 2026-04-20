@@ -175,6 +175,10 @@
         <p id="userInfo" class="user-chip">Cargando...</p>
       </div>
 
+      <p id="accessHelp" class="err" style="display:none; margin: 0 4px;">
+        Pide al admin que te le de acceso a tu correo institucional.
+      </p>
+
       <div class="grid">
         <div class="card">
           <h2>Actividades pendientes</h2>
@@ -186,7 +190,7 @@
         </div>
       </div>
 
-      <div class="card">
+      <div id="registroCard" class="card">
         <h2>Registrar actividad</h2>
         <form id="registroForm">
           <div class="field">
@@ -295,6 +299,8 @@
 
       google.script.run
         .withSuccessHandler((data) => {
+          document.getElementById('registroCard').style.display = '';
+          document.getElementById('accessHelp').style.display = 'none';
           initialData = data;
           document.getElementById('userInfo').textContent = `${data.userEmail} | ${data.coordinacion}`;
           renderActivities('pendingList', data.actividadesPendientes);
@@ -307,6 +313,12 @@
         .withFailureHandler((err) => {
           document.getElementById('userInfo').textContent = err.message;
           document.getElementById('userInfo').className = 'err';
+
+          const isNoAccess = (err && err.message || '').toLowerCase().includes('no tiene acceso');
+          if (isNoAccess) {
+            document.getElementById('registroCard').style.display = 'none';
+            document.getElementById('accessHelp').style.display = 'block';
+          }
         })
         .getInitialData();
 
