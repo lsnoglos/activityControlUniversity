@@ -208,33 +208,20 @@ function getListsDictionary_() {
   const headers = values[0].map((v) => String(v || '').trim());
   const dataRows = values.slice(1);
 
-  const hasOldFormat = headers.includes('lista') && headers.includes('valor');
-  if (hasOldFormat) {
-    return getListsDictionaryFromKeyValue_(headers, dataRows);
+  const requiredLists = ['tipoActividad', 'tipoProtagonista', 'indicadorPoa', 'codigoEstrategia'];
+  const missingHeaders = requiredLists.filter((header) => !headers.includes(header));
+  if (missingHeaders.length) {
+    throw new Error(
+      `La hoja ${SHEETS.LISTAS} debe usar encabezados por columna. Faltan: ${missingHeaders.join(', ')}.`
+    );
   }
-  return getListsDictionaryFromColumnHeaders_(headers, dataRows);
+
+  return getListsDictionaryFromColumnHeaders_(headers, dataRows, requiredLists);
 }
 
-function getListsDictionaryFromKeyValue_(headers, dataRows) {
-  const listaIndex = headers.indexOf('lista');
-  const valorIndex = headers.indexOf('valor');
-  return dataRows.reduce((acc, row) => {
-    const lista = String(row[listaIndex] || '').trim();
-    const valor = String(row[valorIndex] || '').trim();
-    if (!lista || !valor) {
-      return acc;
-    }
-    if (!acc[lista]) {
-      acc[lista] = [];
-    }
-    acc[lista].push(valor);
-    return acc;
-  }, {});
-}
-
-function getListsDictionaryFromColumnHeaders_(headers, dataRows) {
+function getListsDictionaryFromColumnHeaders_(headers, dataRows, allowedHeaders) {
   return headers.reduce((acc, header, colIndex) => {
-    if (!header) {
+    if (!header || (allowedHeaders && !allowedHeaders.includes(header))) {
       return acc;
     }
     const items = dataRows
