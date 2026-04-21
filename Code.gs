@@ -65,7 +65,7 @@ function initializeSheets() {
   ensureSheetWithHeaders_(ss, SHEETS.ACTIVIDADES, HEADERS.ACTIVIDADES);
   ensureSheetWithHeaders_(ss, SHEETS.COORDINADORES, HEADERS.COORDINADORES);
   ensureSheetWithHeaders_(ss, SHEETS.REGISTROS, HEADERS.REGISTROS);
-  ensureSheetWithHeaders_(ss, SHEETS.LISTAS, ['lista', 'valor']);
+  ensureSheetWithHeaders_(ss, SHEETS.LISTAS, ['tipoActividad', 'tipoProtagonista', 'indicadorPoa', 'codigoEstrategia']);
 }
 
 function getInitialData() {
@@ -193,15 +193,54 @@ function getRecordsByCoordination_(coordinacion) {
 }
 
 function getListsDictionary_() {
-  const rows = getSheetObjects_(SHEETS.LISTAS, ['lista', 'valor']);
-  return rows.reduce((acc, row) => {
-    if (!row.lista || !row.valor) {
+  const sh = SpreadsheetApp.getActive().getSheetByName(SHEETS.LISTAS);
+  if (!sh) {
+    throw new Error(`No existe la hoja ${SHEETS.LISTAS}. Ejecute initializeSheets().`);
+  }
+
+  const lastRow = sh.getLastRow();
+  const lastCol = sh.getLastColumn();
+  if (lastRow < 1 || lastCol < 1) {
+    return {};
+  }
+
+  const values = sh.getRange(1, 1, lastRow, lastCol).getValues();
+  const headers = values[0].map((v) => String(v || '').trim());
+  const dataRows = values.slice(1);
+
+  const hasOldFormat = headers.includes('lista') && headers.includes('valor');
+  if (hasOldFormat) {
+    return getListsDictionaryFromKeyValue_(headers, dataRows);
+  }
+  return getListsDictionaryFromColumnHeaders_(headers, dataRows);
+}
+
+function getListsDictionaryFromKeyValue_(headers, dataRows) {
+  const listaIndex = headers.indexOf('lista');
+  const valorIndex = headers.indexOf('valor');
+  return dataRows.reduce((acc, row) => {
+    const lista = String(row[listaIndex] || '').trim();
+    const valor = String(row[valorIndex] || '').trim();
+    if (!lista || !valor) {
       return acc;
     }
-    if (!acc[row.lista]) {
-      acc[row.lista] = [];
+    if (!acc[lista]) {
+      acc[lista] = [];
     }
-    acc[row.lista].push(row.valor);
+    acc[lista].push(valor);
+    return acc;
+  }, {});
+}
+
+function getListsDictionaryFromColumnHeaders_(headers, dataRows) {
+  return headers.reduce((acc, header, colIndex) => {
+    if (!header) {
+      return acc;
+    }
+    const items = dataRows
+      .map((row) => String(row[colIndex] || '').trim())
+      .filter((value) => value !== '');
+    acc[header] = items;
     return acc;
   }, {});
 }
