@@ -29,16 +29,19 @@ La función `initializeSheets()` crea (si no existen) estas hojas y cabeceras:
 3. `Registros`
    - Campos de control, tiempos, participantes, metadatos de actividad y URLs de evidencias.
 4. `Listas`
-   - `lista`, `valor`
+   - Formato por columnas (recomendado): una columna por lista.
+   - Cabeceras iniciales sugeridas por `initializeSheets()`:
+     - `tipoActividad`, `tipoProtagonista`, `indicadorPoa`, `codigoEstrategia`
+   - También se mantiene compatibilidad con el formato anterior `lista`, `valor`.
 
 ## Listas esperadas en `Listas`
 
-Use la columna `lista` para agrupar y `valor` para cada opción. Ejemplos:
+Use una columna por cada lista y cargue sus valores hacia abajo en la misma columna. Ejemplo:
 
-- `ejeEne`: `Eje 1. Educación para la vida`, etc.
-- `indicadorPoa`: `2. Porcentaje de carreras...`, etc.
 - `tipoActividad`: `Curricular`, `Formación continua`, `Participación en programas nacionales`, `Tecnologías`.
 - `tipoProtagonista`: `Estudiante`, `Docente`, `Personal administrativo`, `Servidores públicos`, etc.
+- `indicadorPoa`: descripciones de indicadores.
+- `codigoEstrategia`: códigos de estrategia asociados.
 
 ## Configuración rápida
 
