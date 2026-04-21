@@ -158,6 +158,26 @@
 
       .ok { color: var(--ok); font-weight: 600; }
       .err { color: var(--err); font-weight: 600; }
+      .global-loading {
+        display: grid;
+        place-items: center;
+        gap: 10px;
+        min-height: 180px;
+      }
+
+      .loading-gif {
+        width: 48px;
+        height: 48px;
+        object-fit: contain;
+      }
+
+      .list-loading {
+        display: grid;
+        place-items: center;
+        gap: 6px;
+        padding: 16px;
+        color: var(--muted);
+      }
 
       @media (max-width: 900px) {
         body { padding: 14px; }
@@ -176,6 +196,15 @@
         <p id="userInfo" class="user-chip">Cargando...</p>
       </div>
 
+      <div id="globalLoading" class="card global-loading">
+        <img
+          class="loading-gif"
+          src="https://upload.wikimedia.org/wikipedia/commons/c/c7/Loading_2.gif?_=20170503175831"
+          alt="Cargando"
+        />
+        <span class="muted">Cargando información...</span>
+      </div>
+
       <p id="accessHelp" class="err" style="display:none; margin: 0 4px;">
         Pide al admin que te le de acceso a tu correo institucional.
       </p>
@@ -184,10 +213,26 @@
         <div id="summaryGrid" class="grid">
           <div class="card">
             <h2>Actividades pendientes</h2>
+            <div id="pendingLoading" class="list-loading">
+              <img
+                class="loading-gif"
+                src="https://upload.wikimedia.org/wikipedia/commons/c/c7/Loading_2.gif?_=20170503175831"
+                alt="Cargando lista pendientes"
+              />
+              <span>Cargando lista...</span>
+            </div>
             <ul id="pendingList" class="stats-list"></ul>
           </div>
           <div class="card">
             <h2>Actividades realizadas</h2>
+            <div id="doneLoading" class="list-loading">
+              <img
+                class="loading-gif"
+                src="https://upload.wikimedia.org/wikipedia/commons/c/c7/Loading_2.gif?_=20170503175831"
+                alt="Cargando lista realizadas"
+              />
+              <span>Cargando lista...</span>
+            </div>
             <ul id="doneList" class="stats-list"></ul>
           </div>
         </div>
@@ -285,15 +330,30 @@
         select.innerHTML = (values || []).map(v => `<option value="${v}">${v}</option>`).join('');
       }
 
-      function renderActivities(listId, activities) {
-        const ul = document.getElementById(listId);
-        if (!activities.length) {
-          ul.innerHTML = '<li class="muted">Sin datos</li>';
-          return;
+      function setGlobalLoading(isLoading) {
+        document.getElementById('globalLoading').classList.toggle('hidden', !isLoading);
+      }
+
+      function setListLoading(listId, isLoading) {
+        const loading = document.getElementById(`${listId.replace('List', '')}Loading`);
+        if (loading) {
+          loading.classList.toggle('hidden', !isLoading);
         }
-        ul.innerHTML = activities
-          .map((a) => `<li><strong>${a.actividadId}</strong> - ${a.actividad} <span class="muted">(${a.indicadorPoa})</span></li>`)
-          .join('');
+      }
+
+      function renderActivities(listId, activities, emptyMessage = 'No List.') {
+        const ul = document.getElementById(listId);
+        try {
+          if (!Array.isArray(activities) || !activities.length) {
+            ul.innerHTML = `<li class="muted">${emptyMessage}</li>`;
+            return;
+          }
+          ul.innerHTML = activities
+            .map((a) => `<li><strong>${a.actividadId}</strong> - ${a.actividad} <span class="muted">(${a.indicadorPoa})</span></li>`)
+            .join('');
+        } catch (e) {
+          ul.innerHTML = `<li class="muted">${emptyMessage}</li>`;
+        }
       }
 
       function toBase64(file) {
@@ -307,9 +367,9 @@
 
       google.script.run
         .withSuccessHandler((data) => {
+          setGlobalLoading(false);
           if (!data || data.authorized !== true) {
-            const noAccessMessage = (data && data.message) || 'Tu correo no tiene acceso.';
-            document.getElementById('userInfo').textContent = `Error: ${noAccessMessage}`;
+            document.getElementById('userInfo').textContent = 'No Access.';
             document.getElementById('userInfo').className = 'err';
             setContentVisibility({ showAuthorizedContent: false, showHelp: true });
             return;
@@ -319,15 +379,20 @@
           initialData = data;
           document.getElementById('userInfo').textContent = `${data.userEmail} | ${data.coordinacion}`;
           document.getElementById('userInfo').className = 'user-chip';
+          setListLoading('pendingList', true);
+          setListLoading('doneList', true);
           renderActivities('pendingList', data.actividadesPendientes);
+          setListLoading('pendingList', false);
           renderActivities('doneList', data.actividadesCompletadas);
+          setListLoading('doneList', false);
 
           optionize('actividadId', data.actividadesPendientes.concat(data.actividadesCompletadas).map(a => a.actividadId));
           optionize('tipoActividad', data.listas.tipoActividad || []);
           optionize('tipoProtagonista', data.listas.tipoProtagonista || []);
         })
-        .withFailureHandler((err) => {
-          document.getElementById('userInfo').textContent = err.message || 'Error al cargar la página.';
+        .withFailureHandler(() => {
+          setGlobalLoading(false);
+          document.getElementById('userInfo').textContent = 'No List.';
           document.getElementById('userInfo').className = 'err';
           setContentVisibility({ showAuthorizedContent: false, showHelp: false });
         })
@@ -377,8 +442,8 @@
             result.textContent = `Registro guardado (${res.registroId})`;
             result.className = 'ok';
           })
-          .withFailureHandler((err) => {
-            result.textContent = err.message;
+          .withFailureHandler(() => {
+            result.textContent = 'No registrado.';
             result.className = 'err';
           })
           .registrarActividad(payload);
