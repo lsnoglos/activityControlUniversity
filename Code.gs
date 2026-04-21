@@ -193,43 +193,49 @@ function getRecordsByCoordination_(coordinacion) {
 }
 
 function getListsDictionary_() {
+  const requiredLists = ['tipoActividad', 'tipoProtagonista', 'indicadorPoa', 'codigoEstrategia'];
+  const defaultError = 'Error list.';
+  const result = requiredLists.reduce((acc, key) => {
+    acc[key] = { items: [], error: null };
+    return acc;
+  }, {});
+
   const sh = SpreadsheetApp.getActive().getSheetByName(SHEETS.LISTAS);
   if (!sh) {
-    throw new Error(`No existe la hoja ${SHEETS.LISTAS}. Ejecute initializeSheets().`);
+    requiredLists.forEach((key) => {
+      result[key].error = defaultError;
+    });
+    return result;
   }
 
   const lastRow = sh.getLastRow();
   const lastCol = sh.getLastColumn();
   if (lastRow < 1 || lastCol < 1) {
-    return {};
+    requiredLists.forEach((key) => {
+      result[key].error = defaultError;
+    });
+    return result;
   }
 
   const values = sh.getRange(1, 1, lastRow, lastCol).getValues();
   const headers = values[0].map((v) => String(v || '').trim());
   const dataRows = values.slice(1);
 
-  const requiredLists = ['tipoActividad', 'tipoProtagonista', 'indicadorPoa', 'codigoEstrategia'];
-  const missingHeaders = requiredLists.filter((header) => !headers.includes(header));
-  if (missingHeaders.length) {
-    throw new Error(
-      `La hoja ${SHEETS.LISTAS} debe usar encabezados por columna. Faltan: ${missingHeaders.join(', ')}.`
-    );
-  }
-
-  return getListsDictionaryFromColumnHeaders_(headers, dataRows, requiredLists);
-}
-
-function getListsDictionaryFromColumnHeaders_(headers, dataRows, allowedHeaders) {
-  return headers.reduce((acc, header, colIndex) => {
-    if (!header || (allowedHeaders && !allowedHeaders.includes(header))) {
-      return acc;
+  requiredLists.forEach((key) => {
+    const colIndex = headers.indexOf(key);
+    if (colIndex < 0) {
+      result[key].error = defaultError;
+      return;
     }
+
     const items = dataRows
       .map((row) => String(row[colIndex] || '').trim())
       .filter((value) => value !== '');
-    acc[header] = items;
-    return acc;
-  }, {});
+
+    result[key].items = items;
+  });
+
+  return result;
 }
 
 function uploadEvidenceFiles_(files, indicadorPoa, coordinacion, actividadId) {

@@ -179,6 +179,19 @@
         color: var(--muted);
       }
 
+      .select-list-loading {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        color: var(--muted);
+        font-size: 0.84rem;
+      }
+
+      .select-list-loading .loading-gif {
+        width: 20px;
+        height: 20px;
+      }
+
       @media (max-width: 900px) {
         body { padding: 14px; }
         .grid,
@@ -243,6 +256,10 @@
             <div class="field">
               <label>Actividad</label>
               <select id="actividadId" required></select>
+              <div id="actividadIdLoading" class="select-list-loading">
+                <img class="loading-gif" src="https://upload.wikimedia.org/wikipedia/commons/c/c7/Loading_2.gif?_=20170503175831" alt="Cargando lista de actividades" />
+                <span>Loading list...</span>
+              </div>
             </div>
 
           <div class="form-grid">
@@ -271,10 +288,18 @@
             <div class="field">
               <label>Tipo de actividad</label>
               <select id="tipoActividad" required></select>
+              <div id="tipoActividadLoading" class="select-list-loading">
+                <img class="loading-gif" src="https://upload.wikimedia.org/wikipedia/commons/c/c7/Loading_2.gif?_=20170503175831" alt="Cargando lista de tipo de actividad" />
+                <span>Loading list...</span>
+              </div>
             </div>
             <div class="field">
               <label>Tipo de protagonista</label>
               <select id="tipoProtagonista"></select>
+              <div id="tipoProtagonistaLoading" class="select-list-loading">
+                <img class="loading-gif" src="https://upload.wikimedia.org/wikipedia/commons/c/c7/Loading_2.gif?_=20170503175831" alt="Cargando lista de tipo de protagonista" />
+                <span>Loading list...</span>
+              </div>
             </div>
           </div>
 
@@ -325,9 +350,21 @@
         document.getElementById('accessHelp').style.display = showHelp ? 'block' : 'none';
       }
 
-      function optionize(selectId, values) {
+      function optionize(selectId, values, { error, emptyMessage = 'No List.' } = {}) {
         const select = document.getElementById(selectId);
-        select.innerHTML = (values || []).map(v => `<option value="${v}">${v}</option>`).join('');
+        const safeValues = Array.isArray(values) ? values : [];
+        if (error) {
+          select.innerHTML = '<option value="">Error list.</option>';
+          select.disabled = true;
+          return;
+        }
+        if (!safeValues.length) {
+          select.innerHTML = `<option value="">${emptyMessage}</option>`;
+          select.disabled = true;
+          return;
+        }
+        select.innerHTML = safeValues.map(v => `<option value="${v}">${v}</option>`).join('');
+        select.disabled = false;
       }
 
       function setGlobalLoading(isLoading) {
@@ -339,6 +376,28 @@
         if (loading) {
           loading.classList.toggle('hidden', !isLoading);
         }
+      }
+
+
+      function setSelectListLoading(selectId, isLoading) {
+        const loading = document.getElementById(`${selectId}Loading`);
+        if (loading) {
+          loading.classList.toggle('hidden', !isLoading);
+        }
+      }
+
+      function getListPayload(lists, key) {
+        if (Array.isArray(lists && lists[key])) {
+          return { items: lists[key], error: null };
+        }
+        const entry = lists && lists[key];
+        if (entry && typeof entry === 'object') {
+          return {
+            items: Array.isArray(entry.items) ? entry.items : [],
+            error: entry.error || null
+          };
+        }
+        return { items: [], error: null };
       }
 
       function renderActivities(listId, activities, emptyMessage = 'No List.') {
@@ -386,12 +445,29 @@
           renderActivities('doneList', data.actividadesCompletadas);
           setListLoading('doneList', false);
 
-          optionize('actividadId', data.actividadesPendientes.concat(data.actividadesCompletadas).map(a => a.actividadId));
-          optionize('tipoActividad', data.listas.tipoActividad || []);
-          optionize('tipoProtagonista', data.listas.tipoProtagonista || []);
+          setSelectListLoading('actividadId', true);
+          setSelectListLoading('tipoActividad', true);
+          setSelectListLoading('tipoProtagonista', true);
+
+          optionize(
+            'actividadId',
+            data.actividadesPendientes.concat(data.actividadesCompletadas).map((a) => a.actividadId)
+          );
+          setSelectListLoading('actividadId', false);
+
+          const tipoActividadData = getListPayload(data.listas, 'tipoActividad');
+          optionize('tipoActividad', tipoActividadData.items, { error: tipoActividadData.error });
+          setSelectListLoading('tipoActividad', false);
+
+          const tipoProtagonistaData = getListPayload(data.listas, 'tipoProtagonista');
+          optionize('tipoProtagonista', tipoProtagonistaData.items, { error: tipoProtagonistaData.error });
+          setSelectListLoading('tipoProtagonista', false);
         })
         .withFailureHandler(() => {
           setGlobalLoading(false);
+          setSelectListLoading('actividadId', false);
+          setSelectListLoading('tipoActividad', false);
+          setSelectListLoading('tipoProtagonista', false);
           document.getElementById('userInfo').textContent = 'No List.';
           document.getElementById('userInfo').className = 'err';
           setContentVisibility({ showAuthorizedContent: false, showHelp: false });
