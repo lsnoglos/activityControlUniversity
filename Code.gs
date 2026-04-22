@@ -6,6 +6,23 @@ const SHEETS = {
 };
 
 const DRIVE_ROOT_FOLDER_ID = 'REEMPLAZAR_CON_FOLDER_ID_PRINCIPAL';
+const AREAS = [
+  'Ingeniería Civil',
+  'CCEEyJJ',
+  'Investigación',
+  'Posgrado y EC',
+  'BE - Proy. Social',
+  'Biblioteca',
+  'Supervisión Metodológica',
+  'Dirección Académica',
+  'Comunicación Institucional',
+  'Recursos Humanos',
+  'Registro Académico',
+  'Ingeniería Agronómica',
+  'Diseño Gráfico y Arq',
+  'Gestión de Calidad',
+  'TIC'
+];
 
 const HEADERS = {
   ACTIVIDADES: [
@@ -40,7 +57,8 @@ const HEADERS = {
     'tipoActividad',
     'objetivoActividad',
     'carrerasInvolucradas',
-    'areaConocimiento',
+    'areaPrincipal',
+    'areasApoyo',
     'tipoProtagonista',
     'actividadNombre',
     'indicadorPoa',
@@ -98,7 +116,8 @@ function getInitialData() {
     coordinacion: coordinador.coordinacion,
     actividadesPendientes,
     actividadesCompletadas,
-    listas: getListsDictionary_()
+    listas: getListsDictionary_(),
+    areas: AREAS
   };
 }
 
@@ -149,7 +168,8 @@ function registrarActividad(payload) {
     tipoActividad: payload.tipoActividad,
     objetivoActividad: payload.objetivoActividad,
     carrerasInvolucradas: payload.carrerasInvolucradas,
-    areaConocimiento: payload.areaConocimiento,
+    areaPrincipal: payload.areaPrincipal,
+    areasApoyo: payload.areasApoyo,
     tipoProtagonista: payload.tipoProtagonista,
     actividadNombre: actividad.actividad,
     indicadorPoa: actividad.indicadorPoa,
@@ -285,7 +305,8 @@ function validatePayload_(payload) {
     'horaInicio',
     'horaFin',
     'tipoActividad',
-    'objetivoActividad'
+    'objetivoActividad',
+    'areaPrincipal'
   ];
 
   required.forEach((field) => {

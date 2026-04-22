@@ -314,9 +314,17 @@
               <input id="carrerasInvolucradas" type="text" />
             </div>
             <div class="field">
-              <label>Área del conocimiento</label>
-              <input id="areaConocimiento" type="text" />
+              <label>Área principal</label>
+              <select id="areaPrincipal" required></select>
+              <div id="areaPrincipalLoading" class="select-list-loading">
+                <img class="loading-gif" src="https://upload.wikimedia.org/wikipedia/commons/c/c7/Loading_2.gif?_=20170503175831" alt="Cargando lista de áreas" />
+                <span>Loading list...</span>
+              </div>
             </div>
+          </div>
+          <div class="field">
+            <label>Áreas de apoyo (opcional)</label>
+            <select id="areasApoyo" multiple></select>
           </div>
 
           <div class="form-grid triple">
@@ -448,6 +456,7 @@
           setSelectListLoading('actividadId', true);
           setSelectListLoading('tipoActividad', true);
           setSelectListLoading('tipoProtagonista', true);
+          setSelectListLoading('areaPrincipal', true);
 
           optionize(
             'actividadId',
@@ -462,12 +471,17 @@
           const tipoProtagonistaData = getListPayload(data.listas, 'tipoProtagonista');
           optionize('tipoProtagonista', tipoProtagonistaData.items, { error: tipoProtagonistaData.error });
           setSelectListLoading('tipoProtagonista', false);
+
+          optionize('areaPrincipal', data.areas || [], { emptyMessage: 'No hay áreas disponibles.' });
+          optionize('areasApoyo', data.areas || [], { emptyMessage: 'No hay áreas disponibles.' });
+          setSelectListLoading('areaPrincipal', false);
         })
         .withFailureHandler(() => {
           setGlobalLoading(false);
           setSelectListLoading('actividadId', false);
           setSelectListLoading('tipoActividad', false);
           setSelectListLoading('tipoProtagonista', false);
+          setSelectListLoading('areaPrincipal', false);
           document.getElementById('userInfo').textContent = 'No List.';
           document.getElementById('userInfo').className = 'err';
           setContentVisibility({ showAuthorizedContent: false, showHelp: false });
@@ -508,7 +522,11 @@
           tipoActividad: document.getElementById('tipoActividad').value,
           objetivoActividad: document.getElementById('objetivoActividad').value,
           carrerasInvolucradas: document.getElementById('carrerasInvolucradas').value,
-          areaConocimiento: document.getElementById('areaConocimiento').value,
+          areaPrincipal: document.getElementById('areaPrincipal').value,
+          areasApoyo: Array.from(document.getElementById('areasApoyo').selectedOptions)
+            .map((option) => option.value)
+            .filter((value) => value && value !== document.getElementById('areaPrincipal').value)
+            .join(', '),
           tipoProtagonista: document.getElementById('tipoProtagonista').value,
           fotos
         };
