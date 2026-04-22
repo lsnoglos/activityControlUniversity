@@ -377,7 +377,7 @@
         </div>
 
         <div id="activityDetailCard" class="card hidden">
-          <details id="activityDetailAccordion" open>
+          <details id="activityDetailAccordion">
             <summary><h2 style="display:inline;">Detalle de actividad</h2></summary>
             <div id="activityDetail" style="margin-top: 10px;"></div>
           </details>
@@ -386,6 +386,7 @@
         <div id="registroCard" class="card">
           <h2>Registrar actividad</h2>
           <form id="registroForm">
+            <p id="registroHelp" class="muted">Selecciona una actividad pendiente para habilitar el registro.</p>
             <div class="field">
               <label>Actividad</label>
               <select id="actividadId" required></select>
@@ -586,6 +587,10 @@
         return String(raw || '')
           .split(',')
           .map(v => String(v || '').trim())
+          .map((value) => {
+            const match = value.match(/^\d+/);
+            return match ? match[0] : '';
+          })
           .filter(v => v !== '');
       }
 
@@ -593,7 +598,7 @@
         const list = (((initialData || {}).listas || {}).indicadoresDetalle) || [];
         return list.reduce((acc, item) => {
           const fullText = String(item.indicador || '').trim();
-          const number = (fullText.match(/^\d+/) || [fullText])[0];
+          const number = String(item.numero || '').trim() || (fullText.match(/^\d+/) || [''])[0];
           if (!number) return acc;
           acc[number] = {
             indicador: fullText,
@@ -618,10 +623,42 @@
         renderActivities('participantList', initialData.actividadesParticipante, 'No participas en actividades de otras áreas.');
       }
 
+      function setFormEditableState(activity) {
+        const form = document.getElementById('registroForm');
+        const help = document.getElementById('registroHelp');
+        const submitBtn = form.querySelector('button[type="submit"]');
+        const isPendingOwner = activity && activity.esPropietario && !activity.estaFinalizada;
+        const shouldLock = !isPendingOwner;
+
+        Array.from(form.elements).forEach((element) => {
+          if (!element || !element.id) return;
+          if (element.id === 'actividadId') return;
+          if (element.id === 'agregarAreasBtn' || element.id === 'guardarOtrasAreasBtn' || element.id === 'cancelarOtrasAreasBtn') return;
+          element.disabled = shouldLock;
+        });
+
+        submitBtn.disabled = shouldLock;
+        if (!activity) {
+          help.textContent = 'Selecciona una actividad pendiente para habilitar el registro.';
+          return;
+        }
+        if (!activity.esPropietario) {
+          help.textContent = 'Actividad en la que participas: solo lectura.';
+          return;
+        }
+        if (activity.estaFinalizada) {
+          help.textContent = 'Actividad finalizada: solo consulta, no se permite modificar.';
+          return;
+        }
+        help.textContent = 'Actividad pendiente seleccionada: puedes registrar información.';
+      }
+
       function refreshSupportAreasState() {
         const btn = document.getElementById('agregarAreasBtn');
         const status = document.getElementById('areasApoyoEstado');
-        const selected = getActivityById(document.getElementById('actividadId').value);
+        const selectedFromDetail = selectedActivityId ? getActivityById(selectedActivityId) : null;
+        const selectedFromForm = getActivityById(document.getElementById('actividadId').value);
+        const selected = selectedFromDetail || selectedFromForm;
         const owner = selected && selected.esPropietario;
         btn.disabled = !owner;
         if (!selected) {
@@ -671,6 +708,7 @@
         if (!activity) {
           detailCard.classList.remove('hidden');
           detail.innerHTML = '<p class="err">No se encontró la actividad seleccionada.</p>';
+          setFormEditableState(null);
           return;
         }
 
@@ -689,8 +727,15 @@
             <li class="indicator-row">
               <strong>${escapeHtml(item.numero)}. ${escapeHtml(item.nombre.replace(/^\d+\.\s*/, ''))}</strong>
               <details>
-                <summary>Ver código</summary>
-                <p class="muted">${escapeHtml(item.indicadorEstrategia || 'Sin códigos asociados')}</p>
+                <summary>Ver códigos estratégicos</summary>
+                <ul class="muted">
+                  ${(item.indicadorEstrategia || '')
+                    .split(/\r?\n/)
+                    .map((code) => code.trim())
+                    .filter((code) => code !== '')
+                    .map((code) => `<li>${escapeHtml(code)}</li>`)
+                    .join('') || '<li>Sin códigos asociados</li>'}
+                </ul>
               </details>
             </li>`).join('')
           : '<li class="muted">Sin indicadores.</li>';
@@ -718,7 +763,12 @@
           </div>
         `;
         detailCard.classList.remove('hidden');
-        document.getElementById('activityDetailAccordion').open = true;
+        document.getElementById('activityDetailAccordion').open = false;
+        const actividadSelect = document.getElementById('actividadId');
+        if (activity.esPropietario && !activity.estaFinalizada) {
+          actividadSelect.value = activity.actividadId;
+        }
+        setFormEditableState(activity);
         refreshSupportAreasState();
       }
 
@@ -731,6 +781,10 @@
       });
 
       document.getElementById('actividadId').addEventListener('change', () => {
+        const selected = getActivityById(document.getElementById('actividadId').value);
+        selectedActivityId = selected ? selected.actividadId : '';
+        rerenderActivityLists();
+        setFormEditableState(selected);
         refreshSupportAreasState();
       });
 
@@ -818,7 +872,7 @@
 
           optionize(
             'actividadId',
-            data.actividadesPendientes.concat(data.actividadesCompletadas).map((a) => a.actividadId),
+            data.actividadesPendientes.map((a) => a.actividadId),
             { emptyMessage: 'No hay actividades propias para registrar.' }
           );
           setSelectListLoading('actividadId', false);
@@ -838,6 +892,7 @@
 
           optionize('areaPrincipal', data.areas || [], { emptyMessage: 'No hay áreas disponibles.' });
           setSelectListLoading('areaPrincipal', false);
+          setFormEditableState(null);
           refreshSupportAreasState();
         })
         .withFailureHandler(() => {
