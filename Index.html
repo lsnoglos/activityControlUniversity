@@ -99,6 +99,12 @@
       .stats-list li.activity-item {
         display: grid;
         gap: 8px;
+        border: 1px solid var(--border);
+      }
+
+      .stats-list li.activity-item.is-selected {
+        border-color: var(--primary-2);
+        box-shadow: inset 0 0 0 1px rgba(31, 95, 181, 0.15);
       }
 
       .activity-meta {
@@ -183,6 +189,33 @@
 
       .form-grid.triple {
         grid-template-columns: repeat(3, minmax(0, 1fr));
+      }
+
+      .form-grid.stats-row {
+        grid-template-columns: repeat(6, minmax(120px, 1fr));
+      }
+
+      .support-areas-panel {
+        display: grid;
+        gap: 8px;
+      }
+
+      .support-areas-box {
+        max-height: 190px;
+        overflow: auto;
+        border: 1px solid var(--border);
+        border-radius: 10px;
+        padding: 10px;
+        background: var(--surface-muted);
+        display: grid;
+        gap: 6px;
+      }
+
+      .support-areas-actions {
+        display: flex;
+        gap: 8px;
+        align-items: center;
+        flex-wrap: wrap;
       }
 
       .field {
@@ -275,6 +308,10 @@
         .form-grid.triple {
           grid-template-columns: 1fr;
         }
+
+        .form-grid.stats-row {
+          grid-template-columns: repeat(2, minmax(0, 1fr));
+        }
       }
     </style>
   </head>
@@ -340,8 +377,10 @@
         </div>
 
         <div id="activityDetailCard" class="card hidden">
-          <h2>Detalle de actividad</h2>
-          <div id="activityDetail"></div>
+          <details id="activityDetailAccordion" open>
+            <summary><h2 style="display:inline;">Detalle de actividad</h2></summary>
+            <div id="activityDetail" style="margin-top: 10px;"></div>
+          </details>
         </div>
 
         <div id="registroCard" class="card">
@@ -416,12 +455,20 @@
               </div>
             </div>
           </div>
-          <div class="field">
-            <label>Áreas de apoyo (opcional)</label>
-            <select id="areasApoyo" multiple></select>
+          <div class="field support-areas-panel">
+            <label>Área de apoyo (opcional)</label>
+            <div class="support-areas-actions">
+              <button id="agregarAreasBtn" type="button">Agregar áreas</button>
+              <span id="areasApoyoEstado" class="muted"></span>
+            </div>
+            <div id="supportAreaEditor" class="support-areas-box hidden"></div>
+            <div id="supportAreaEditorActions" class="support-areas-actions hidden">
+              <button id="guardarOtrasAreasBtn" type="button">Guardar áreas</button>
+              <button id="cancelarOtrasAreasBtn" type="button" class="outline-btn">Cancelar</button>
+            </div>
           </div>
 
-          <div class="form-grid triple">
+          <div class="form-grid stats-row">
             <div class="field"><label># alumnos hombres</label><input id="alumnosHombres" type="number" min="0" value="0" /></div>
             <div class="field"><label># alumnas mujeres</label><input id="alumnasMujeres" type="number" min="0" value="0" /></div>
             <div class="field"><label># docentes hombres</label><input id="docentesHombres" type="number" min="0" value="0" /></div>
@@ -446,6 +493,8 @@
 
     <script>
       let initialData = null;
+      let selectedActivityId = '';
+      let pendingSupportAreaSelection = [];
 
       function escapeHtml(value) {
         return String(value || '')
@@ -523,8 +572,9 @@
               const rolBadge = a.esPropietario
                 ? '<span class="badge badge-owner">Dueño</span>'
                 : '<span class="badge badge-participant">Participante (solo lectura)</span>';
+              const isSelected = selectedActivityId && a.actividadId === selectedActivityId ? 'is-selected' : '';
               const involved = (a.areasInvolucradasLista || []).join(', ') || 'Sin áreas involucradas';
-              return `<li class="activity-item"><div><strong>${escapeHtml(a.actividadId)}</strong> - ${escapeHtml(a.actividad)} <span class="muted">(${escapeHtml(a.indicadorPoa)})</span></div><div class="activity-meta">${rolBadge}<span class="muted">Dueño: ${escapeHtml(a.coordinacion)}</span><button class="outline-btn detail-btn" data-id="${escapeHtml(a.actividadId)}" type="button">Ver detalle</button></div><div class="muted">Áreas involucradas: ${escapeHtml(involved)}</div></li>`;
+              return `<li class="activity-item ${isSelected}"><div><strong>${escapeHtml(a.actividadId)}</strong> - ${escapeHtml(a.actividad)} <span class="muted">(${escapeHtml(a.indicadorPoa)})</span></div><div class="activity-meta">${rolBadge}<span class="muted">Dueño: ${escapeHtml(a.coordinacion)}</span><button class="outline-btn detail-btn" data-id="${escapeHtml(a.actividadId)}" type="button">Ver detalle</button></div><div class="muted">Áreas involucradas: ${escapeHtml(involved)}</div></li>`;
             })
             .join('');
         } catch (e) {
@@ -547,17 +597,77 @@
           if (!number) return acc;
           acc[number] = {
             indicador: fullText,
-            codigoEstrategia: String(item.codigoEstrategia || '').trim()
+            indicadorEstrategia: String(item.indicadorEstrategia || '').trim()
           };
           return acc;
         }, {});
       }
 
+      function getAllVisibleActivities() {
+        return ((initialData && initialData.actividadesVisibles) || []);
+      }
+
+      function getActivityById(activityId) {
+        return getAllVisibleActivities().find((a) => a.actividadId === activityId) || null;
+      }
+
+      function rerenderActivityLists() {
+        if (!initialData) return;
+        renderActivities('pendingList', initialData.actividadesPendientes);
+        renderActivities('doneList', initialData.actividadesCompletadas);
+        renderActivities('participantList', initialData.actividadesParticipante, 'No participas en actividades de otras áreas.');
+      }
+
+      function refreshSupportAreasState() {
+        const btn = document.getElementById('agregarAreasBtn');
+        const status = document.getElementById('areasApoyoEstado');
+        const selected = getActivityById(document.getElementById('actividadId').value);
+        const owner = selected && selected.esPropietario;
+        btn.disabled = !owner;
+        if (!selected) {
+          status.textContent = 'Selecciona una actividad propia para agregar áreas.';
+          return;
+        }
+        if (!owner) {
+          status.textContent = 'Solo el dueño de la actividad puede agregar áreas.';
+          return;
+        }
+        const extras = (selected.otrasAreasLista || []).join(', ');
+        status.textContent = extras ? `Áreas extra guardadas: ${extras}` : 'Sin áreas extra guardadas.';
+      }
+
+      function renderSupportAreaEditor(activity) {
+        const box = document.getElementById('supportAreaEditor');
+        const actions = document.getElementById('supportAreaEditorActions');
+        if (!activity || !activity.esPropietario) {
+          box.classList.add('hidden');
+          actions.classList.add('hidden');
+          return;
+        }
+
+        const baseAreas = Array.from(new Set([activity.coordinacion].concat(activity.areasInvolucradasLista || [])));
+        const baseAreasNormalized = new Set(baseAreas.map((a) => String(a || '').trim().toLowerCase()));
+        const existingExtras = activity.otrasAreasLista || [];
+        pendingSupportAreaSelection = existingExtras.slice();
+
+        const options = (initialData.areas || []).map((area) => {
+          const normalized = String(area || '').trim().toLowerCase();
+          const isLocked = baseAreasNormalized.has(normalized);
+          const checked = isLocked || pendingSupportAreaSelection.some((v) => String(v || '').trim().toLowerCase() === normalized);
+          return `<label><input type="checkbox" class="support-area-checkbox" value="${escapeHtml(area)}" ${checked ? 'checked' : ''} ${isLocked ? 'disabled' : ''}/> ${escapeHtml(area)} ${isLocked ? '<span class="muted">(existente)</span>' : ''}</label>`;
+        }).join('');
+
+        box.innerHTML = options || '<span class="muted">No hay áreas disponibles.</span>';
+        box.classList.remove('hidden');
+        actions.classList.remove('hidden');
+      }
+
       function showActivityDetail(activityId) {
         const detailCard = document.getElementById('activityDetailCard');
         const detail = document.getElementById('activityDetail');
-        const all = ((initialData && initialData.actividadesVisibles) || []);
-        const activity = all.find((a) => a.actividadId === activityId);
+        const activity = getActivityById(activityId);
+        selectedActivityId = activityId;
+        rerenderActivityLists();
         if (!activity) {
           detailCard.classList.remove('hidden');
           detail.innerHTML = '<p class="err">No se encontró la actividad seleccionada.</p>';
@@ -570,17 +680,17 @@
           return {
             numero: num,
             nombre: hit ? hit.indicador : `${num}. (Sin nombre en Listas)`,
-            codigoEstrategia: hit ? hit.codigoEstrategia : ''
+            indicadorEstrategia: hit ? hit.indicadorEstrategia : ''
           };
         });
 
         const indicatorsHtml = indicators.length
           ? indicators.map((item) => `
             <li class="indicator-row">
-              <strong>${escapeHtml(item.nombre)}</strong>
+              <strong>${escapeHtml(item.numero)}. ${escapeHtml(item.nombre.replace(/^\d+\.\s*/, ''))}</strong>
               <details>
-                <summary>Códigos estrategia</summary>
-                <p class="muted">${escapeHtml(item.codigoEstrategia || 'Sin códigos asociados')}</p>
+                <summary>Ver código</summary>
+                <p class="muted">${escapeHtml(item.indicadorEstrategia || 'Sin códigos asociados')}</p>
               </details>
             </li>`).join('')
           : '<li class="muted">Sin indicadores.</li>';
@@ -599,11 +709,17 @@
             <p class="muted">${escapeHtml((activity.areasInvolucradasLista || []).join(', ') || 'Sin áreas involucradas')}</p>
           </div>
           <div class="detail-box" style="margin-top: 10px;">
+            <strong>Otras áreas de apoyo:</strong>
+            <p class="muted">${escapeHtml((activity.otrasAreasLista || []).join(', ') || 'Sin áreas de apoyo extra')}</p>
+          </div>
+          <div class="detail-box" style="margin-top: 10px;">
             <strong>Indicadores POA:</strong>
             <ul class="indicator-list">${indicatorsHtml}</ul>
           </div>
         `;
         detailCard.classList.remove('hidden');
+        document.getElementById('activityDetailAccordion').open = true;
+        refreshSupportAreasState();
       }
 
       document.addEventListener('click', (event) => {
@@ -612,6 +728,54 @@
           return;
         }
         showActivityDetail(btn.dataset.id || '');
+      });
+
+      document.getElementById('actividadId').addEventListener('change', () => {
+        refreshSupportAreasState();
+      });
+
+      document.getElementById('agregarAreasBtn').addEventListener('click', () => {
+        const selected = getActivityById(document.getElementById('actividadId').value);
+        renderSupportAreaEditor(selected);
+      });
+
+      document.getElementById('cancelarOtrasAreasBtn').addEventListener('click', () => {
+        document.getElementById('supportAreaEditor').classList.add('hidden');
+        document.getElementById('supportAreaEditorActions').classList.add('hidden');
+      });
+
+      document.getElementById('guardarOtrasAreasBtn').addEventListener('click', () => {
+        const selected = getActivityById(document.getElementById('actividadId').value);
+        if (!selected || !selected.esPropietario) {
+          return;
+        }
+        const baseAreas = Array.from(new Set([selected.coordinacion].concat(selected.areasInvolucradasLista || [])));
+        const baseSet = new Set(baseAreas.map((a) => String(a || '').trim().toLowerCase()));
+        const picked = Array.from(document.querySelectorAll('.support-area-checkbox:checked'))
+          .map((el) => el.value)
+          .filter((v) => !baseSet.has(String(v || '').trim().toLowerCase()));
+
+        const status = document.getElementById('areasApoyoEstado');
+        status.textContent = 'Guardando áreas extra...';
+        google.script.run
+          .withSuccessHandler((res) => {
+            const activity = getActivityById(selected.actividadId);
+            if (activity) {
+              activity.otrasAreasLista = res.otrasAreas || [];
+              activity.otrasAreas = (res.otrasAreas || []).join(', ');
+            }
+            refreshSupportAreasState();
+            showActivityDetail(selected.actividadId);
+            document.getElementById('supportAreaEditor').classList.add('hidden');
+            document.getElementById('supportAreaEditorActions').classList.add('hidden');
+          })
+          .withFailureHandler((err) => {
+            status.textContent = `Error al guardar áreas: ${err && err.message ? err.message : ''}`;
+          })
+          .actualizarOtrasAreasActividad({
+            actividadId: selected.actividadId,
+            otrasAreas: picked
+          });
       });
 
       function toBase64(file) {
@@ -673,8 +837,8 @@
           setSelectListLoading('tipoProtagonista', false);
 
           optionize('areaPrincipal', data.areas || [], { emptyMessage: 'No hay áreas disponibles.' });
-          optionize('areasApoyo', data.areas || [], { emptyMessage: 'No hay áreas disponibles.' });
           setSelectListLoading('areaPrincipal', false);
+          refreshSupportAreasState();
         })
         .withFailureHandler(() => {
           setGlobalLoading(false);
@@ -723,10 +887,7 @@
           objetivoActividad: document.getElementById('objetivoActividad').value,
           carrerasInvolucradas: document.getElementById('carrerasInvolucradas').value,
           areaPrincipal: document.getElementById('areaPrincipal').value,
-          areasApoyo: Array.from(document.getElementById('areasApoyo').selectedOptions)
-            .map((option) => option.value)
-            .filter((value) => value && value !== document.getElementById('areaPrincipal').value)
-            .join(', '),
+          areasApoyo: '',
           tipoProtagonista: document.getElementById('tipoProtagonista').value,
           fotos
         };

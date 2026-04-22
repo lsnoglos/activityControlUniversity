@@ -33,6 +33,7 @@ const HEADERS = {
     'indicadorPoa',
     'ejeEne',
     'areasInvolucradas',
+    'otrasAreas',
     'cuatrimestre'
   ],
   COORDINADORES: ['coordinacion', 'correo', 'activo'],
@@ -83,7 +84,7 @@ function initializeSheets() {
   ensureSheetWithHeaders_(ss, SHEETS.ACTIVIDADES, HEADERS.ACTIVIDADES);
   ensureSheetWithHeaders_(ss, SHEETS.COORDINADORES, HEADERS.COORDINADORES);
   ensureSheetWithHeaders_(ss, SHEETS.REGISTROS, HEADERS.REGISTROS);
-  ensureSheetWithHeaders_(ss, SHEETS.LISTAS, ['tipoActividad', 'tipoProtagonista', 'indicadorPoa', 'codigoEstrategia']);
+  ensureSheetWithHeaders_(ss, SHEETS.LISTAS, ['tipoActividad', 'tipoProtagonista', 'indicadorPoa', 'indicadorEstrategia']);
 }
 
 function getInitialData() {
@@ -217,6 +218,7 @@ function getVisibleActivities_(coordinacion) {
         ...row,
         coordinacion: owner,
         areasInvolucradasLista: splitList_(row.areasInvolucradas),
+        otrasAreasLista: splitList_(row.otrasAreas),
         esPropietario: isOwner,
         esParticipante: !isOwner && isInvolved
       };
@@ -239,7 +241,7 @@ function getRecordsByCoordination_(coordinacion) {
 }
 
 function getListsDictionary_() {
-  const requiredLists = ['tipoActividad', 'tipoProtagonista', 'indicadorPoa', 'codigoEstrategia'];
+  const requiredLists = ['tipoActividad', 'tipoProtagonista', 'indicadorPoa', 'indicadorEstrategia'];
   const defaultError = 'Error list.';
   const result = requiredLists.reduce((acc, key) => {
     acc[key] = { items: [], error: null };
@@ -296,7 +298,7 @@ function getIndicatorDetails_(sheetValues) {
   if (indicatorCol < 0) {
     return [];
   }
-  const strategyCol = headers.indexOf('codigoEstrategia');
+  const strategyCol = headers.indexOf('indicadorEstrategia');
 
   return sheetValues.slice(1).reduce((acc, row) => {
     const indicador = String(row[indicatorCol] || '').trim();
@@ -305,11 +307,65 @@ function getIndicatorDetails_(sheetValues) {
     }
     acc.push({
       indicador,
-      codigoEstrategia:
+      indicadorEstrategia:
         strategyCol >= 0 ? String(row[strategyCol] || '').trim() : ''
     });
     return acc;
   }, []);
+}
+
+function actualizarOtrasAreasActividad(payload) {
+  const actividadId = String((payload && payload.actividadId) || '').trim();
+  const nuevasAreas = Array.isArray(payload && payload.otrasAreas)
+    ? payload.otrasAreas.map((a) => String(a || '').trim()).filter((a) => a !== '')
+    : [];
+  if (!actividadId) {
+    throw new Error('Debe seleccionar una actividad.');
+  }
+
+  const userEmail = Session.getActiveUser().getEmail();
+  const coordinador = getCoordinatorByEmail_(userEmail);
+  if (!coordinador) {
+    throw new Error('No autorizado.');
+  }
+
+  const sh = SpreadsheetApp.getActive().getSheetByName(SHEETS.ACTIVIDADES);
+  if (!sh) {
+    throw new Error(`No existe la hoja ${SHEETS.ACTIVIDADES}.`);
+  }
+
+  const headerRow = sh.getRange(1, 1, 1, sh.getLastColumn()).getValues()[0].map((h) => String(h || '').trim());
+  const idxActividad = headerRow.indexOf('actividadId');
+  const idxCoordinacion = headerRow.indexOf('coordinacion');
+  const idxAreas = headerRow.indexOf('areasInvolucradas');
+  const idxOtrasAreas = headerRow.indexOf('otrasAreas');
+  if (idxActividad < 0 || idxCoordinacion < 0 || idxAreas < 0 || idxOtrasAreas < 0) {
+    throw new Error('La hoja ActividadesPOA debe tener las columnas actividadId, coordinacion, areasInvolucradas y otrasAreas.');
+  }
+
+  const lastRow = sh.getLastRow();
+  if (lastRow <= 1) {
+    throw new Error('No hay actividades para actualizar.');
+  }
+  const data = sh.getRange(2, 1, lastRow - 1, sh.getLastColumn()).getValues();
+  const normalizedCoord = normalizeText_(coordinador.coordinacion);
+  const rowIndex = data.findIndex((row) => String(row[idxActividad] || '').trim() === actividadId);
+  if (rowIndex < 0) {
+    throw new Error('No se encontró la actividad seleccionada.');
+  }
+
+  const ownerCoord = String(data[rowIndex][idxCoordinacion] || '').trim();
+  if (normalizeText_(ownerCoord) !== normalizedCoord) {
+    throw new Error('Solo el dueño de la actividad puede agregar áreas de apoyo.');
+  }
+
+  const existentes = splitList_(data[rowIndex][idxAreas]);
+  const existentesNormalized = new Set(existentes.map((a) => normalizeText_(a)));
+  const limpias = nuevasAreas.filter((area) => !existentesNormalized.has(normalizeText_(area)));
+  const valorFinal = Array.from(new Set(limpias)).join(', ');
+
+  sh.getRange(rowIndex + 2, idxOtrasAreas + 1).setValue(valorFinal);
+  return { ok: true, actividadId, otrasAreas: splitList_(valorFinal) };
 }
 
 function splitAndNormalizeList_(value) {
