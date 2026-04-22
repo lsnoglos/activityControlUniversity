@@ -10,7 +10,7 @@ Este repositorio contiene una base funcional para gestionar actividades POA por 
   - fecha, hora inicio, hora fin,
   - mes y semana (calculados automáticamente),
   - participantes por sexo y rol,
-  - tipo de actividad, objetivo, carreras, área del conocimiento, tipo de protagonista,
+  - tipo de actividad, objetivo, carreras, área principal, áreas de apoyo, tipo de protagonista,
   - evidencias fotográficas.
 - Guarda registros en la hoja `Registros`.
 - Organiza evidencias en Google Drive:
@@ -33,6 +33,28 @@ La función `initializeSheets()` crea (si no existen) estas hojas y cabeceras:
    - Cabeceras iniciales sugeridas por `initializeSheets()`:
      - `tipoActividad`, `tipoProtagonista`, `indicadorPoa`, `codigoEstrategia`
    - También se mantiene compatibilidad con el formato anterior `lista`, `valor`.
+
+## Áreas institucionales
+
+El sistema incluye un catálogo fijo de áreas para el registro de actividades:
+
+- Ingeniería Civil
+- CCEEyJJ
+- Investigación
+- Posgrado y EC
+- BE - Proy. Social
+- Biblioteca
+- Supervisión Metodológica
+- Dirección Académica
+- Comunicación Institucional
+- Recursos Humanos
+- Registro Académico
+- Ingeniería Agronómica
+- Diseño Gráfico y Arq
+- Gestión de Calidad
+- TIC
+
+Regla de uso: cada actividad debe tener **una área principal** y puede incluir **múltiples áreas de apoyo**.
 
 ## Listas esperadas en `Listas`
 
