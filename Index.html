@@ -96,6 +96,82 @@
         font-size: 0.95rem;
       }
 
+      .stats-list li.activity-item {
+        display: grid;
+        gap: 8px;
+      }
+
+      .activity-meta {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        align-items: center;
+      }
+
+      .badge {
+        display: inline-block;
+        border-radius: 999px;
+        padding: 2px 10px;
+        font-size: 0.75rem;
+        font-weight: 700;
+        border: 1px solid transparent;
+      }
+
+      .badge-owner {
+        color: #0f5a2b;
+        background: #e8f8ef;
+        border-color: #b7e5c8;
+      }
+
+      .badge-participant {
+        color: #8a2f0d;
+        background: #fff2e8;
+        border-color: #ffd2b5;
+      }
+
+      .outline-btn {
+        background: #fff;
+        color: var(--primary);
+        border: 1px solid var(--border);
+        padding: 6px 10px;
+        font-size: 0.82rem;
+      }
+
+      .detail-grid {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 10px;
+      }
+
+      .detail-box {
+        border: 1px solid var(--border);
+        border-radius: 10px;
+        padding: 10px;
+        background: var(--surface-muted);
+      }
+
+      .indicator-list {
+        list-style: none;
+        padding: 0;
+        margin: 0;
+        display: grid;
+        gap: 8px;
+      }
+
+      .indicator-row {
+        border: 1px solid var(--border);
+        border-radius: 10px;
+        padding: 8px 10px;
+        background: #fff;
+      }
+
+      details summary {
+        cursor: pointer;
+        color: var(--primary);
+        font-size: 0.84rem;
+        margin-top: 6px;
+      }
+
       .muted { color: var(--muted); }
       .hidden { display: none !important; }
 
@@ -250,6 +326,24 @@
           </div>
         </div>
 
+        <div class="card">
+          <h2>Actividades donde participo</h2>
+          <div id="participantLoading" class="list-loading">
+            <img
+              class="loading-gif"
+              src="https://upload.wikimedia.org/wikipedia/commons/c/c7/Loading_2.gif?_=20170503175831"
+              alt="Cargando lista participantes"
+            />
+            <span>Cargando lista...</span>
+          </div>
+          <ul id="participantList" class="stats-list"></ul>
+        </div>
+
+        <div id="activityDetailCard" class="card hidden">
+          <h2>Detalle de actividad</h2>
+          <div id="activityDetail"></div>
+        </div>
+
         <div id="registroCard" class="card">
           <h2>Registrar actividad</h2>
           <form id="registroForm">
@@ -353,6 +447,15 @@
     <script>
       let initialData = null;
 
+      function escapeHtml(value) {
+        return String(value || '')
+          .replaceAll('&', '&amp;')
+          .replaceAll('<', '&lt;')
+          .replaceAll('>', '&gt;')
+          .replaceAll('"', '&quot;')
+          .replaceAll("'", '&#39;');
+      }
+
       function setContentVisibility({ showAuthorizedContent, showHelp }) {
         document.getElementById('authorizedContent').classList.toggle('hidden', !showAuthorizedContent);
         document.getElementById('accessHelp').style.display = showHelp ? 'block' : 'none';
@@ -416,12 +519,100 @@
             return;
           }
           ul.innerHTML = activities
-            .map((a) => `<li><strong>${a.actividadId}</strong> - ${a.actividad} <span class="muted">(${a.indicadorPoa})</span></li>`)
+            .map((a) => {
+              const rolBadge = a.esPropietario
+                ? '<span class="badge badge-owner">Dueño</span>'
+                : '<span class="badge badge-participant">Participante (solo lectura)</span>';
+              const involved = (a.areasInvolucradasLista || []).join(', ') || 'Sin áreas involucradas';
+              return `<li class="activity-item"><div><strong>${escapeHtml(a.actividadId)}</strong> - ${escapeHtml(a.actividad)} <span class="muted">(${escapeHtml(a.indicadorPoa)})</span></div><div class="activity-meta">${rolBadge}<span class="muted">Dueño: ${escapeHtml(a.coordinacion)}</span><button class="outline-btn detail-btn" data-id="${escapeHtml(a.actividadId)}" type="button">Ver detalle</button></div><div class="muted">Áreas involucradas: ${escapeHtml(involved)}</div></li>`;
+            })
             .join('');
         } catch (e) {
           ul.innerHTML = `<li class="muted">${emptyMessage}</li>`;
         }
       }
+
+      function parseActivityIndicatorNumbers(raw) {
+        return String(raw || '')
+          .split(',')
+          .map(v => String(v || '').trim())
+          .filter(v => v !== '');
+      }
+
+      function getIndicatorDetailMap() {
+        const list = (((initialData || {}).listas || {}).indicadoresDetalle) || [];
+        return list.reduce((acc, item) => {
+          const fullText = String(item.indicador || '').trim();
+          const number = (fullText.match(/^\d+/) || [fullText])[0];
+          if (!number) return acc;
+          acc[number] = {
+            indicador: fullText,
+            codigoEstrategia: String(item.codigoEstrategia || '').trim()
+          };
+          return acc;
+        }, {});
+      }
+
+      function showActivityDetail(activityId) {
+        const detailCard = document.getElementById('activityDetailCard');
+        const detail = document.getElementById('activityDetail');
+        const all = ((initialData && initialData.actividadesVisibles) || []);
+        const activity = all.find((a) => a.actividadId === activityId);
+        if (!activity) {
+          detailCard.classList.remove('hidden');
+          detail.innerHTML = '<p class="err">No se encontró la actividad seleccionada.</p>';
+          return;
+        }
+
+        const indicatorMap = getIndicatorDetailMap();
+        const indicators = parseActivityIndicatorNumbers(activity.indicadorPoa).map((num) => {
+          const hit = indicatorMap[num] || null;
+          return {
+            numero: num,
+            nombre: hit ? hit.indicador : `${num}. (Sin nombre en Listas)`,
+            codigoEstrategia: hit ? hit.codigoEstrategia : ''
+          };
+        });
+
+        const indicatorsHtml = indicators.length
+          ? indicators.map((item) => `
+            <li class="indicator-row">
+              <strong>${escapeHtml(item.nombre)}</strong>
+              <details>
+                <summary>Códigos estrategia</summary>
+                <p class="muted">${escapeHtml(item.codigoEstrategia || 'Sin códigos asociados')}</p>
+              </details>
+            </li>`).join('')
+          : '<li class="muted">Sin indicadores.</li>';
+
+        detail.innerHTML = `
+          <div class="detail-grid">
+            <div class="detail-box"><strong>ID:</strong> ${escapeHtml(activity.actividadId)}</div>
+            <div class="detail-box"><strong>Actividad:</strong> ${escapeHtml(activity.actividad)}</div>
+            <div class="detail-box"><strong>Dueño:</strong> ${escapeHtml(activity.coordinacion)}</div>
+            <div class="detail-box"><strong>Tu rol:</strong> ${activity.esPropietario ? 'Dueño (puede registrar evidencias)' : 'Área involucrada (solo lectura)'}</div>
+            <div class="detail-box"><strong>Eje:</strong> ${escapeHtml(activity.ejeEne || '')}</div>
+            <div class="detail-box"><strong>Cuatrimestre:</strong> ${escapeHtml(activity.cuatrimestre || '')}</div>
+          </div>
+          <div class="detail-box" style="margin-top: 10px;">
+            <strong>Áreas involucradas:</strong>
+            <p class="muted">${escapeHtml((activity.areasInvolucradasLista || []).join(', ') || 'Sin áreas involucradas')}</p>
+          </div>
+          <div class="detail-box" style="margin-top: 10px;">
+            <strong>Indicadores POA:</strong>
+            <ul class="indicator-list">${indicatorsHtml}</ul>
+          </div>
+        `;
+        detailCard.classList.remove('hidden');
+      }
+
+      document.addEventListener('click', (event) => {
+        const btn = event.target.closest('.detail-btn');
+        if (!btn) {
+          return;
+        }
+        showActivityDetail(btn.dataset.id || '');
+      });
 
       function toBase64(file) {
         return new Promise((resolve, reject) => {
@@ -448,10 +639,13 @@
           document.getElementById('userInfo').className = 'user-chip';
           setListLoading('pendingList', true);
           setListLoading('doneList', true);
+          setListLoading('participantList', true);
           renderActivities('pendingList', data.actividadesPendientes);
           setListLoading('pendingList', false);
           renderActivities('doneList', data.actividadesCompletadas);
           setListLoading('doneList', false);
+          renderActivities('participantList', data.actividadesParticipante, 'No participas en actividades de otras áreas.');
+          setListLoading('participantList', false);
 
           setSelectListLoading('actividadId', true);
           setSelectListLoading('tipoActividad', true);
@@ -460,9 +654,15 @@
 
           optionize(
             'actividadId',
-            data.actividadesPendientes.concat(data.actividadesCompletadas).map((a) => a.actividadId)
+            data.actividadesPendientes.concat(data.actividadesCompletadas).map((a) => a.actividadId),
+            { emptyMessage: 'No hay actividades propias para registrar.' }
           );
           setSelectListLoading('actividadId', false);
+
+          const canRegister = (data.actividadesPendientes || []).length + (data.actividadesCompletadas || []).length > 0;
+          if (!canRegister) {
+            document.getElementById('registroCard').classList.add('hidden');
+          }
 
           const tipoActividadData = getListPayload(data.listas, 'tipoActividad');
           optionize('tipoActividad', tipoActividadData.items, { error: tipoActividadData.error });
