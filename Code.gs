@@ -114,16 +114,21 @@ function getInitialData() {
     (a) => !actividadIdsCompletadas.has(a.actividadId)
   );
 
+  const markCompletion = (activity) => ({
+    ...activity,
+    estaFinalizada: actividadIdsCompletadas.has(activity.actividadId)
+  });
+
   return {
     authorized: true,
     userEmail,
     coordinacion: coordinador.coordinacion,
-    actividadesPendientes,
-    actividadesCompletadas,
+    actividadesPendientes: actividadesPendientes.map(markCompletion),
+    actividadesCompletadas: actividadesCompletadas.map(markCompletion),
     actividadesParticipante: actividadesVisibles.filter(
       (a) => a.esPropietario === false
-    ),
-    actividadesVisibles,
+    ).map(markCompletion),
+    actividadesVisibles: actividadesVisibles.map(markCompletion),
     listas: getListsDictionary_(),
     areas: AREAS
   };
@@ -144,6 +149,14 @@ function registrarActividad(payload) {
   }
   if (actividad.coordinacion !== coordinador.coordinacion) {
     throw new Error('La actividad no pertenece a su coordinación.');
+  }
+
+  const isFinalizada = getRecordsByCoordination_(coordinador.coordinacion).some(
+    (record) =>
+      record.actividadId === payload.actividadId && record.estado === 'Finalizada'
+  );
+  if (isFinalizada) {
+    throw new Error('La actividad ya está finalizada y no admite más registros.');
   }
 
   const fecha = new Date(payload.fechaActividad);
@@ -302,10 +315,12 @@ function getIndicatorDetails_(sheetValues) {
 
   return sheetValues.slice(1).reduce((acc, row) => {
     const indicador = String(row[indicatorCol] || '').trim();
-    if (!indicador) {
+    const numberMatch = indicador.match(/^\d+/);
+    if (!indicador || !numberMatch) {
       return acc;
     }
     acc.push({
+      numero: numberMatch[0],
       indicador,
       indicadorEstrategia:
         strategyCol >= 0 ? String(row[strategyCol] || '').trim() : ''
