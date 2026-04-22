@@ -97,16 +97,19 @@ function getInitialData() {
     };
   }
 
-  const actividades = getActivitiesByCoordination_(coordinador.coordinacion);
+  const actividadesVisibles = getVisibleActivities_(coordinador.coordinacion);
+  const actividadesPropias = actividadesVisibles.filter(
+    (a) => a.esPropietario === true
+  );
   const registros = getRecordsByCoordination_(coordinador.coordinacion);
   const actividadIdsCompletadas = new Set(
     registros.filter((r) => r.estado === 'Finalizada').map((r) => r.actividadId)
   );
 
-  const actividadesCompletadas = actividades.filter((a) =>
+  const actividadesCompletadas = actividadesPropias.filter((a) =>
     actividadIdsCompletadas.has(a.actividadId)
   );
-  const actividadesPendientes = actividades.filter(
+  const actividadesPendientes = actividadesPropias.filter(
     (a) => !actividadIdsCompletadas.has(a.actividadId)
   );
 
@@ -116,6 +119,10 @@ function getInitialData() {
     coordinacion: coordinador.coordinacion,
     actividadesPendientes,
     actividadesCompletadas,
+    actividadesParticipante: actividadesVisibles.filter(
+      (a) => a.esPropietario === false
+    ),
+    actividadesVisibles,
     listas: getListsDictionary_(),
     areas: AREAS
   };
@@ -198,6 +205,25 @@ function getActivitiesByCoordination_(coordinacion) {
   );
 }
 
+function getVisibleActivities_(coordinacion) {
+  const normalizedCoord = normalizeText_(coordinacion);
+  return getSheetObjects_(SHEETS.ACTIVIDADES, HEADERS.ACTIVIDADES)
+    .map((row) => {
+      const owner = String(row.coordinacion || '').trim();
+      const involvedAreas = splitAndNormalizeList_(row.areasInvolucradas);
+      const isOwner = normalizeText_(owner) === normalizedCoord;
+      const isInvolved = involvedAreas.includes(normalizedCoord);
+      return {
+        ...row,
+        coordinacion: owner,
+        areasInvolucradasLista: splitList_(row.areasInvolucradas),
+        esPropietario: isOwner,
+        esParticipante: !isOwner && isInvolved
+      };
+    })
+    .filter((row) => row.esPropietario || row.esParticipante);
+}
+
 function getActivityById_(actividadId) {
   return (
     getSheetObjects_(SHEETS.ACTIVIDADES, HEADERS.ACTIVIDADES).find(
@@ -255,7 +281,50 @@ function getListsDictionary_() {
     result[key].items = items;
   });
 
+  result.indicadoresDetalle = getIndicatorDetails_(values);
+
   return result;
+}
+
+function getIndicatorDetails_(sheetValues) {
+  if (!Array.isArray(sheetValues) || !sheetValues.length) {
+    return [];
+  }
+
+  const headers = sheetValues[0].map((v) => String(v || '').trim());
+  const indicatorCol = headers.indexOf('indicadorPoa');
+  if (indicatorCol < 0) {
+    return [];
+  }
+  const strategyCol = headers.indexOf('codigoEstrategia');
+
+  return sheetValues.slice(1).reduce((acc, row) => {
+    const indicador = String(row[indicatorCol] || '').trim();
+    if (!indicador) {
+      return acc;
+    }
+    acc.push({
+      indicador,
+      codigoEstrategia:
+        strategyCol >= 0 ? String(row[strategyCol] || '').trim() : ''
+    });
+    return acc;
+  }, []);
+}
+
+function splitAndNormalizeList_(value) {
+  return splitList_(value).map((v) => normalizeText_(v));
+}
+
+function splitList_(value) {
+  return String(value || '')
+    .split(',')
+    .map((v) => String(v || '').trim())
+    .filter((v) => v !== '');
+}
+
+function normalizeText_(value) {
+  return String(value || '').trim().toLowerCase();
 }
 
 function uploadEvidenceFiles_(files, indicadorPoa, coordinacion, actividadId) {
