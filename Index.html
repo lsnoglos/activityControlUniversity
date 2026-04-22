@@ -74,9 +74,9 @@
         font-size: 0.9rem;
       }
 
-      .grid {
+      .dashboard-grid {
         display: grid;
-        grid-template-columns: repeat(2, minmax(0, 1fr));
+        grid-template-columns: repeat(3, minmax(0, 1fr));
         gap: 16px;
       }
 
@@ -303,7 +303,7 @@
 
       @media (max-width: 900px) {
         body { padding: 14px; }
-        .grid,
+        .dashboard-grid,
         .form-grid,
         .form-grid.triple {
           grid-template-columns: 1fr;
@@ -336,7 +336,7 @@
       </p>
 
       <div id="authorizedContent" class="hidden">
-        <div id="summaryGrid" class="grid">
+        <div id="summaryGrid" class="dashboard-grid">
           <div class="card">
             <h2>Actividades pendientes</h2>
             <div id="pendingLoading" class="list-loading">
@@ -361,19 +361,18 @@
             </div>
             <ul id="doneList" class="stats-list"></ul>
           </div>
-        </div>
-
-        <div class="card">
-          <h2>Actividades donde participo</h2>
-          <div id="participantLoading" class="list-loading">
-            <img
-              class="loading-gif"
-              src="https://upload.wikimedia.org/wikipedia/commons/c/c7/Loading_2.gif?_=20170503175831"
-              alt="Cargando lista participantes"
-            />
-            <span>Cargando lista...</span>
+          <div class="card">
+            <h2>Actividades donde participo</h2>
+            <div id="participantLoading" class="list-loading">
+              <img
+                class="loading-gif"
+                src="https://upload.wikimedia.org/wikipedia/commons/c/c7/Loading_2.gif?_=20170503175831"
+                alt="Cargando lista participantes"
+              />
+              <span>Cargando lista...</span>
+            </div>
+            <ul id="participantList" class="stats-list"></ul>
           </div>
-          <ul id="participantList" class="stats-list"></ul>
         </div>
 
         <div id="activityDetailCard" class="card hidden">
@@ -383,7 +382,7 @@
           </details>
         </div>
 
-        <div id="registroCard" class="card">
+        <div id="registroCard" class="card hidden">
           <h2>Registrar actividad</h2>
           <form id="registroForm">
             <p id="registroHelp" class="muted">Selecciona una actividad pendiente para habilitar el registro.</p>
@@ -561,7 +560,7 @@
         return { items: [], error: null };
       }
 
-      function renderActivities(listId, activities, emptyMessage = 'No List.') {
+      function renderActivities(listId, activities, emptyMessage = 'No List.', { showDetailButton = false } = {}) {
         const ul = document.getElementById(listId);
         try {
           if (!Array.isArray(activities) || !activities.length) {
@@ -575,7 +574,10 @@
                 : '<span class="badge badge-participant">Participante (solo lectura)</span>';
               const isSelected = selectedActivityId && a.actividadId === selectedActivityId ? 'is-selected' : '';
               const involved = (a.areasInvolucradasLista || []).join(', ') || 'Sin áreas involucradas';
-              return `<li class="activity-item ${isSelected}"><div><strong>${escapeHtml(a.actividadId)}</strong> - ${escapeHtml(a.actividad)} <span class="muted">(${escapeHtml(a.indicadorPoa)})</span></div><div class="activity-meta">${rolBadge}<span class="muted">Dueño: ${escapeHtml(a.coordinacion)}</span><button class="outline-btn detail-btn" data-id="${escapeHtml(a.actividadId)}" type="button">Ver detalle</button></div><div class="muted">Áreas involucradas: ${escapeHtml(involved)}</div></li>`;
+              const detailBtn = showDetailButton
+                ? `<button class="outline-btn detail-btn" data-id="${escapeHtml(a.actividadId)}" type="button">Ver detalle</button>`
+                : '';
+              return `<li class="activity-item ${isSelected}"><div><strong>${escapeHtml(a.actividadId)}</strong> - ${escapeHtml(a.actividad)} <span class="muted">(${escapeHtml(a.indicadorPoa)})</span></div><div class="activity-meta">${rolBadge}<span class="muted">Dueño: ${escapeHtml(a.coordinacion)}</span>${detailBtn}</div><div class="muted">Áreas involucradas: ${escapeHtml(involved)}</div></li>`;
             })
             .join('');
         } catch (e) {
@@ -618,7 +620,7 @@
 
       function rerenderActivityLists() {
         if (!initialData) return;
-        renderActivities('pendingList', initialData.actividadesPendientes);
+        renderActivities('pendingList', initialData.actividadesPendientes, 'No List.', { showDetailButton: true });
         renderActivities('doneList', initialData.actividadesCompletadas);
         renderActivities('participantList', initialData.actividadesParticipante, 'No participas en actividades de otras áreas.');
       }
@@ -627,6 +629,7 @@
         const form = document.getElementById('registroForm');
         const help = document.getElementById('registroHelp');
         const submitBtn = form.querySelector('button[type="submit"]');
+        const registroCard = document.getElementById('registroCard');
         const isPendingOwner = activity && activity.esPropietario && !activity.estaFinalizada;
         const shouldLock = !isPendingOwner;
 
@@ -640,17 +643,21 @@
         submitBtn.disabled = shouldLock;
         if (!activity) {
           help.textContent = 'Selecciona una actividad pendiente para habilitar el registro.';
+          registroCard.classList.add('hidden');
           return;
         }
         if (!activity.esPropietario) {
           help.textContent = 'Actividad en la que participas: solo lectura.';
+          registroCard.classList.add('hidden');
           return;
         }
         if (activity.estaFinalizada) {
           help.textContent = 'Actividad finalizada: solo consulta, no se permite modificar.';
+          registroCard.classList.add('hidden');
           return;
         }
         help.textContent = 'Actividad pendiente seleccionada: puedes registrar información.';
+        registroCard.classList.remove('hidden');
       }
 
       function refreshSupportAreasState() {
@@ -858,7 +865,7 @@
           setListLoading('pendingList', true);
           setListLoading('doneList', true);
           setListLoading('participantList', true);
-          renderActivities('pendingList', data.actividadesPendientes);
+          renderActivities('pendingList', data.actividadesPendientes, 'No List.', { showDetailButton: true });
           setListLoading('pendingList', false);
           renderActivities('doneList', data.actividadesCompletadas);
           setListLoading('doneList', false);
