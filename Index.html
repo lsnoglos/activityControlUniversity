@@ -199,6 +199,43 @@
         display: grid;
         gap: 8px;
       }
+      .career-list {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 8px;
+      }
+      .career-item {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        border: 1px solid var(--border);
+        border-radius: 10px;
+        padding: 8px 10px;
+        background: var(--surface-muted);
+      }
+      .career-item.active {
+        border-color: #63b68b;
+        background: #e9f9ef;
+      }
+      .career-pill-wrap {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        margin-top: 6px;
+      }
+      .career-pill {
+        border: 1px solid var(--border);
+        border-radius: 999px;
+        padding: 4px 10px;
+        font-size: 0.82rem;
+        background: #fff;
+      }
+      .career-pill.active {
+        border-color: #63b68b;
+        background: #e9f9ef;
+        color: #0f5a2b;
+        font-weight: 600;
+      }
 
       .support-areas-box {
         max-height: 190px;
@@ -312,6 +349,9 @@
         .form-grid.stats-row {
           grid-template-columns: repeat(2, minmax(0, 1fr));
         }
+        .career-list {
+          grid-template-columns: 1fr;
+        }
       }
     </style>
   </head>
@@ -385,15 +425,7 @@
         <div id="registroCard" class="card hidden">
           <h2>Registrar actividad</h2>
           <form id="registroForm">
-            <p id="registroHelp" class="muted">Selecciona una actividad pendiente para habilitar el registro.</p>
-            <div class="field">
-              <label>Actividad</label>
-              <select id="actividadId" required></select>
-              <div id="actividadIdLoading" class="select-list-loading">
-                <img class="loading-gif" src="https://upload.wikimedia.org/wikipedia/commons/c/c7/Loading_2.gif?_=20170503175831" alt="Cargando lista de actividades" />
-                <span>Loading list...</span>
-              </div>
-            </div>
+            <p id="registroHelp" class="muted">Selecciona una actividad para continuar.</p>
 
           <div class="form-grid">
             <div class="field">
@@ -415,6 +447,15 @@
               <label>Hora fin</label>
               <input id="horaFin" type="time" required />
             </div>
+          </div>
+
+          <div class="form-grid stats-row">
+            <div class="field"><label># alumnos hombres</label><input id="alumnosHombres" type="number" min="0" value="0" /></div>
+            <div class="field"><label># alumnas mujeres</label><input id="alumnasMujeres" type="number" min="0" value="0" /></div>
+            <div class="field"><label># docentes hombres</label><input id="docentesHombres" type="number" min="0" value="0" /></div>
+            <div class="field"><label># docentes mujeres</label><input id="docentesMujeres" type="number" min="0" value="0" /></div>
+            <div class="field"><label># administrativos hombres</label><input id="administrativosHombres" type="number" min="0" value="0" /></div>
+            <div class="field"><label># administrativas mujeres</label><input id="administrativasMujeres" type="number" min="0" value="0" /></div>
           </div>
 
           <div class="form-grid">
@@ -443,10 +484,6 @@
 
           <div class="form-grid">
             <div class="field">
-              <label>Carreras involucradas</label>
-              <input id="carrerasInvolucradas" type="text" />
-            </div>
-            <div class="field">
               <label>Área principal</label>
               <select id="areaPrincipal" required></select>
               <div id="areaPrincipalLoading" class="select-list-loading">
@@ -454,6 +491,10 @@
                 <span>Loading list...</span>
               </div>
             </div>
+          </div>
+          <div class="field">
+            <label>Carreras involucradas</label>
+            <div id="carrerasInvolucradas" class="career-list"></div>
           </div>
           <div class="field support-areas-panel">
             <label>Área de apoyo (opcional)</label>
@@ -466,15 +507,6 @@
               <button id="guardarOtrasAreasBtn" type="button">Guardar áreas</button>
               <button id="cancelarOtrasAreasBtn" type="button" class="outline-btn">Cancelar</button>
             </div>
-          </div>
-
-          <div class="form-grid stats-row">
-            <div class="field"><label># alumnos hombres</label><input id="alumnosHombres" type="number" min="0" value="0" /></div>
-            <div class="field"><label># alumnas mujeres</label><input id="alumnasMujeres" type="number" min="0" value="0" /></div>
-            <div class="field"><label># docentes hombres</label><input id="docentesHombres" type="number" min="0" value="0" /></div>
-            <div class="field"><label># docentes mujeres</label><input id="docentesMujeres" type="number" min="0" value="0" /></div>
-            <div class="field"><label># administrativos hombres</label><input id="administrativosHombres" type="number" min="0" value="0" /></div>
-            <div class="field"><label># administrativas mujeres</label><input id="administrativasMujeres" type="number" min="0" value="0" /></div>
           </div>
 
           <div class="field">
@@ -560,7 +592,7 @@
         return { items: [], error: null };
       }
 
-      function renderActivities(listId, activities, emptyMessage = 'No List.', { showDetailButton = false } = {}) {
+      function renderActivities(listId, activities, emptyMessage = 'No List.', { showDetailButton = false, participantReadOnly = false } = {}) {
         const ul = document.getElementById(listId);
         try {
           if (!Array.isArray(activities) || !activities.length) {
@@ -577,6 +609,9 @@
               const detailBtn = showDetailButton
                 ? `<button class="outline-btn detail-btn" data-id="${escapeHtml(a.actividadId)}" type="button">Ver detalle</button>`
                 : '';
+              if (participantReadOnly) {
+                return `<li class="activity-item ${isSelected}"><div><strong>${escapeHtml(a.actividadId)}</strong> - ${escapeHtml(a.actividad)} <span class="muted">(${escapeHtml(a.indicadorPoa)})</span></div><div class="activity-meta">${rolBadge}${detailBtn}</div></li>`;
+              }
               return `<li class="activity-item ${isSelected}"><div><strong>${escapeHtml(a.actividadId)}</strong> - ${escapeHtml(a.actividad)} <span class="muted">(${escapeHtml(a.indicadorPoa)})</span></div><div class="activity-meta">${rolBadge}<span class="muted">Dueño: ${escapeHtml(a.coordinacion)}</span>${detailBtn}</div><div class="muted">Áreas involucradas: ${escapeHtml(involved)}</div></li>`;
             })
             .join('');
@@ -622,7 +657,38 @@
         if (!initialData) return;
         renderActivities('pendingList', initialData.actividadesPendientes, 'No List.', { showDetailButton: true });
         renderActivities('doneList', initialData.actividadesCompletadas);
-        renderActivities('participantList', initialData.actividadesParticipante, 'No participas en actividades de otras áreas.');
+        renderActivities('participantList', initialData.actividadesParticipante, 'No participas en actividades de otras áreas.', { showDetailButton: true, participantReadOnly: true });
+      }
+
+      function getCareerSelection() {
+        return Array.from(document.querySelectorAll('.career-checkbox:checked')).map((input) => input.value);
+      }
+
+      function renderCareerChecklist(selectedValues = [], disabled = false) {
+        const box = document.getElementById('carrerasInvolucradas');
+        const selectedSet = new Set((selectedValues || []).map((v) => String(v || '').trim().toLowerCase()));
+        const careers = ((((initialData || {}).listas || {}).carreras || {}).items || []);
+        if (!careers.length) {
+          box.innerHTML = '<span class="muted">No hay carreras configuradas en la hoja Listas.</span>';
+          return;
+        }
+        box.innerHTML = careers.map((career) => {
+          const normalized = String(career || '').trim().toLowerCase();
+          const checked = selectedSet.has(normalized);
+          return `<label class="career-item ${checked ? 'active' : ''}"><input type="checkbox" class="career-checkbox" value="${escapeHtml(career)}" ${checked ? 'checked' : ''} ${disabled ? 'disabled' : ''}/> ${escapeHtml(career)}</label>`;
+        }).join('');
+      }
+
+      function getCareerPillsHtml(selectedValues = []) {
+        const careers = ((((initialData || {}).listas || {}).carreras || {}).items || []);
+        const selectedSet = new Set((selectedValues || []).map((v) => String(v || '').trim().toLowerCase()));
+        if (!careers.length) {
+          return '<p class="muted">No hay carreras configuradas.</p>';
+        }
+        return `<div class="career-pill-wrap">${careers.map((career) => {
+          const active = selectedSet.has(String(career || '').trim().toLowerCase());
+          return `<span class="career-pill ${active ? 'active' : ''}">${escapeHtml(career)}</span>`;
+        }).join('')}</div>`;
       }
 
       function setFormEditableState(activity) {
@@ -635,37 +701,38 @@
 
         Array.from(form.elements).forEach((element) => {
           if (!element || !element.id) return;
-          if (element.id === 'actividadId') return;
           if (element.id === 'agregarAreasBtn' || element.id === 'guardarOtrasAreasBtn' || element.id === 'cancelarOtrasAreasBtn') return;
           element.disabled = shouldLock;
         });
 
         submitBtn.disabled = shouldLock;
         if (!activity) {
-          help.textContent = 'Selecciona una actividad pendiente para habilitar el registro.';
+          help.textContent = 'Selecciona una actividad para continuar.';
           registroCard.classList.add('hidden');
+          renderCareerChecklist([], true);
           return;
         }
         if (!activity.esPropietario) {
           help.textContent = 'Actividad en la que participas: solo lectura.';
           registroCard.classList.add('hidden');
+          renderCareerChecklist(splitListClient((activity.ultimoRegistro || {}).carrerasInvolucradas), true);
           return;
         }
         if (activity.estaFinalizada) {
           help.textContent = 'Actividad finalizada: solo consulta, no se permite modificar.';
           registroCard.classList.add('hidden');
+          renderCareerChecklist(splitListClient((activity.ultimoRegistro || {}).carrerasInvolucradas), true);
           return;
         }
-        help.textContent = 'Actividad pendiente seleccionada: puedes registrar información.';
+        help.textContent = 'Actividad lista para registrar información.';
         registroCard.classList.remove('hidden');
+        renderCareerChecklist(splitListClient((activity.ultimoRegistro || {}).carrerasInvolucradas), false);
       }
 
       function refreshSupportAreasState() {
         const btn = document.getElementById('agregarAreasBtn');
         const status = document.getElementById('areasApoyoEstado');
-        const selectedFromDetail = selectedActivityId ? getActivityById(selectedActivityId) : null;
-        const selectedFromForm = getActivityById(document.getElementById('actividadId').value);
-        const selected = selectedFromDetail || selectedFromForm;
+        const selected = selectedActivityId ? getActivityById(selectedActivityId) : null;
         const owner = selected && selected.esPropietario;
         btn.disabled = !owner;
         if (!selected) {
@@ -746,6 +813,7 @@
               </details>
             </li>`).join('')
           : '<li class="muted">Sin indicadores.</li>';
+        const selectedCareers = splitListClient((activity.ultimoRegistro || {}).carrerasInvolucradas);
 
         detail.innerHTML = `
           <div class="detail-grid">
@@ -765,18 +833,25 @@
             <p class="muted">${escapeHtml((activity.otrasAreasLista || []).join(', ') || 'Sin áreas de apoyo extra')}</p>
           </div>
           <div class="detail-box" style="margin-top: 10px;">
+            <strong>Carreras involucradas (último registro):</strong>
+            ${getCareerPillsHtml(selectedCareers)}
+          </div>
+          <div class="detail-box" style="margin-top: 10px;">
             <strong>Indicadores POA:</strong>
             <ul class="indicator-list">${indicatorsHtml}</ul>
           </div>
         `;
         detailCard.classList.remove('hidden');
         document.getElementById('activityDetailAccordion').open = false;
-        const actividadSelect = document.getElementById('actividadId');
-        if (activity.esPropietario && !activity.estaFinalizada) {
-          actividadSelect.value = activity.actividadId;
-        }
         setFormEditableState(activity);
         refreshSupportAreasState();
+      }
+
+      function splitListClient(value) {
+        return String(value || '')
+          .split(',')
+          .map((v) => String(v || '').trim())
+          .filter((v) => v !== '');
       }
 
       document.addEventListener('click', (event) => {
@@ -787,16 +862,16 @@
         showActivityDetail(btn.dataset.id || '');
       });
 
-      document.getElementById('actividadId').addEventListener('change', () => {
-        const selected = getActivityById(document.getElementById('actividadId').value);
-        selectedActivityId = selected ? selected.actividadId : '';
-        rerenderActivityLists();
-        setFormEditableState(selected);
-        refreshSupportAreasState();
+      document.addEventListener('change', (event) => {
+        if (!event.target.classList.contains('career-checkbox')) return;
+        const row = event.target.closest('.career-item');
+        if (row) {
+          row.classList.toggle('active', event.target.checked);
+        }
       });
 
       document.getElementById('agregarAreasBtn').addEventListener('click', () => {
-        const selected = getActivityById(document.getElementById('actividadId').value);
+        const selected = selectedActivityId ? getActivityById(selectedActivityId) : null;
         renderSupportAreaEditor(selected);
       });
 
@@ -806,7 +881,7 @@
       });
 
       document.getElementById('guardarOtrasAreasBtn').addEventListener('click', () => {
-        const selected = getActivityById(document.getElementById('actividadId').value);
+        const selected = selectedActivityId ? getActivityById(selectedActivityId) : null;
         if (!selected || !selected.esPropietario) {
           return;
         }
@@ -869,20 +944,12 @@
           setListLoading('pendingList', false);
           renderActivities('doneList', data.actividadesCompletadas);
           setListLoading('doneList', false);
-          renderActivities('participantList', data.actividadesParticipante, 'No participas en actividades de otras áreas.');
+          renderActivities('participantList', data.actividadesParticipante, 'No participas en actividades de otras áreas.', { showDetailButton: true, participantReadOnly: true });
           setListLoading('participantList', false);
 
-          setSelectListLoading('actividadId', true);
           setSelectListLoading('tipoActividad', true);
           setSelectListLoading('tipoProtagonista', true);
           setSelectListLoading('areaPrincipal', true);
-
-          optionize(
-            'actividadId',
-            data.actividadesPendientes.map((a) => a.actividadId),
-            { emptyMessage: 'No hay actividades propias para registrar.' }
-          );
-          setSelectListLoading('actividadId', false);
 
           const canRegister = (data.actividadesPendientes || []).length + (data.actividadesCompletadas || []).length > 0;
           if (!canRegister) {
@@ -899,12 +966,12 @@
 
           optionize('areaPrincipal', data.areas || [], { emptyMessage: 'No hay áreas disponibles.' });
           setSelectListLoading('areaPrincipal', false);
+          renderCareerChecklist([], true);
           setFormEditableState(null);
           refreshSupportAreasState();
         })
         .withFailureHandler(() => {
           setGlobalLoading(false);
-          setSelectListLoading('actividadId', false);
           setSelectListLoading('tipoActividad', false);
           setSelectListLoading('tipoProtagonista', false);
           setSelectListLoading('areaPrincipal', false);
@@ -934,7 +1001,7 @@
         }
 
         const payload = {
-          actividadId: document.getElementById('actividadId').value,
+          actividadId: selectedActivityId,
           estado: document.getElementById('estado').value,
           fechaActividad: document.getElementById('fechaActividad').value,
           horaInicio: document.getElementById('horaInicio').value,
@@ -947,7 +1014,7 @@
           administrativasMujeres: document.getElementById('administrativasMujeres').value,
           tipoActividad: document.getElementById('tipoActividad').value,
           objetivoActividad: document.getElementById('objetivoActividad').value,
-          carrerasInvolucradas: document.getElementById('carrerasInvolucradas').value,
+          carrerasInvolucradas: getCareerSelection().join(', '),
           areaPrincipal: document.getElementById('areaPrincipal').value,
           areasApoyo: '',
           tipoProtagonista: document.getElementById('tipoProtagonista').value,
