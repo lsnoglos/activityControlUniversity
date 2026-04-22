@@ -23,18 +23,6 @@ const AREAS = [
   'Gestión de Calidad',
   'TIC'
 ];
-const DEFAULT_CARRERAS = [
-  'Ing. de Sistemas',
-  'Ing. Civil',
-  'Agronomía',
-  'Arquitectura',
-  'Diseño gráfico',
-  'Marketing y publicidad',
-  'Derecho',
-  'Contabilidad',
-  'Contaduría',
-  'Ing. Industrial'
-];
 
 const HEADERS = {
   ACTIVIDADES: [
@@ -96,7 +84,7 @@ function initializeSheets() {
   ensureSheetWithHeaders_(ss, SHEETS.ACTIVIDADES, HEADERS.ACTIVIDADES);
   ensureSheetWithHeaders_(ss, SHEETS.COORDINADORES, HEADERS.COORDINADORES);
   ensureSheetWithHeaders_(ss, SHEETS.REGISTROS, HEADERS.REGISTROS);
-  ensureSheetWithHeaders_(ss, SHEETS.LISTAS, ['tipoActividad', 'tipoProtagonista', 'indicadorPoa', 'indicadorEstrategia', 'carreras']);
+  ensureSheetWithHeaders_(ss, SHEETS.LISTAS, ['tipoActividad', 'tipoProtagonista', 'indicadorPoa', 'indicadorEstrategia']);
 }
 
 function getInitialData() {
@@ -128,27 +116,19 @@ function getInitialData() {
 
   const markCompletion = (activity) => ({
     ...activity,
-    estaFinalizada: actividadIdsCompletadas.has(activity.actividadId),
-    ultimoRegistro: null
-  });
-
-  const actividadesMarcadas = actividadesVisibles.map(markCompletion);
-  const actividadIdsVisibles = actividadesMarcadas.map((a) => a.actividadId);
-  const ultimosRegistros = getLatestRecordsByActivityIds_(actividadIdsVisibles);
-  actividadesMarcadas.forEach((activity) => {
-    activity.ultimoRegistro = ultimosRegistros[activity.actividadId] || null;
+    estaFinalizada: actividadIdsCompletadas.has(activity.actividadId)
   });
 
   return {
     authorized: true,
     userEmail,
     coordinacion: coordinador.coordinacion,
-    actividadesPendientes: actividadesMarcadas.filter((a) => a.esPropietario && !a.estaFinalizada),
-    actividadesCompletadas: actividadesMarcadas.filter((a) => a.esPropietario && a.estaFinalizada),
+    actividadesPendientes: actividadesPendientes.map(markCompletion),
+    actividadesCompletadas: actividadesCompletadas.map(markCompletion),
     actividadesParticipante: actividadesVisibles.filter(
       (a) => a.esPropietario === false
-    ).map((a) => actividadesMarcadas.find((m) => m.actividadId === a.actividadId)),
-    actividadesVisibles: actividadesMarcadas,
+    ).map(markCompletion),
+    actividadesVisibles: actividadesVisibles.map(markCompletion),
     listas: getListsDictionary_(),
     areas: AREAS
   };
@@ -274,7 +254,7 @@ function getRecordsByCoordination_(coordinacion) {
 }
 
 function getListsDictionary_() {
-  const requiredLists = ['tipoActividad', 'tipoProtagonista', 'indicadorPoa', 'indicadorEstrategia', 'carreras'];
+  const requiredLists = ['tipoActividad', 'tipoProtagonista', 'indicadorPoa', 'indicadorEstrategia'];
   const defaultError = 'Error list.';
   const result = requiredLists.reduce((acc, key) => {
     acc[key] = { items: [], error: null };
@@ -316,41 +296,9 @@ function getListsDictionary_() {
     result[key].items = items;
   });
 
-  if (!result.carreras.items.length && !result.carreras.error) {
-    result.carreras.items = DEFAULT_CARRERAS.slice();
-  }
-
   result.indicadoresDetalle = getIndicatorDetails_(values);
 
   return result;
-}
-
-function getLatestRecordsByActivityIds_(actividadIds) {
-  const uniqueIds = Array.from(
-    new Set((actividadIds || []).map((id) => String(id || '').trim()).filter((id) => id !== ''))
-  );
-  if (!uniqueIds.length) {
-    return {};
-  }
-
-  const idsSet = new Set(uniqueIds);
-  const rows = getSheetObjects_(SHEETS.REGISTROS, HEADERS.REGISTROS).filter((row) =>
-    idsSet.has(String(row.actividadId || '').trim())
-  );
-
-  return rows.reduce((acc, row) => {
-    const id = String(row.actividadId || '').trim();
-    if (!id) {
-      return acc;
-    }
-    const prev = acc[id];
-    const prevDate = prev ? new Date(prev.timestampRegistro).getTime() : -1;
-    const rowDate = new Date(row.timestampRegistro).getTime();
-    if (!prev || rowDate >= prevDate) {
-      acc[id] = row;
-    }
-    return acc;
-  }, {});
 }
 
 function getIndicatorDetails_(sheetValues) {
