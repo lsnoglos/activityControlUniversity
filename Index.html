@@ -74,10 +74,11 @@
         background: rgba(255,255,255,0.16);
         border: 1px solid rgba(255,255,255,0.28);
         font-size: 0.9rem;
-        white-space: nowrap;
-        overflow: hidden;
-        text-overflow: ellipsis;
-        max-width: min(42vw, 320px);
+        white-space: normal;
+        overflow-wrap: anywhere;
+        text-overflow: clip;
+        min-width: 0;
+        max-width: 100%;
       }
 
       .dashboard-grid {
@@ -92,10 +93,13 @@
         align-items: center;
         flex-wrap: nowrap;
         justify-content: flex-end;
+        flex: 1 1 auto;
+        min-width: 0;
       }
 
       .quarter-select {
-        min-width: 190px;
+        flex: 1 1 260px;
+        min-width: 180px;
         background: rgba(255,255,255,0.14);
         color: #fff;
         border: 1px solid rgba(255,255,255,0.34);
