@@ -80,6 +80,25 @@
         gap: 16px;
       }
 
+      .hero-controls {
+        display: flex;
+        gap: 10px;
+        align-items: center;
+        flex-wrap: wrap;
+        justify-content: flex-end;
+      }
+
+      .quarter-select {
+        min-width: 190px;
+        background: rgba(255,255,255,0.14);
+        color: #fff;
+        border: 1px solid rgba(255,255,255,0.34);
+      }
+
+      .quarter-select option {
+        color: var(--text);
+      }
+
       .stats-list {
         list-style: none;
         margin: 0;
@@ -342,6 +361,10 @@
         .form-grid.stats-row {
           grid-template-columns: repeat(2, minmax(0, 1fr));
         }
+
+        .dashboard-card.done-card {
+          display: none;
+        }
       }
     </style>
   </head>
@@ -349,7 +372,10 @@
     <div class="page">
       <div class="card hero">
         <h1>Control de Actividades POA</h1>
-        <p id="userInfo" class="user-chip">Cargando...</p>
+        <div class="hero-controls">
+          <select id="quarterSelect" class="quarter-select"></select>
+          <p id="userInfo" class="user-chip">Cargando...</p>
+        </div>
       </div>
 
       <div id="globalLoading" class="card global-loading">
@@ -367,7 +393,7 @@
 
       <div id="authorizedContent" class="hidden">
         <div id="summaryGrid" class="dashboard-grid">
-          <div class="card">
+          <div class="card dashboard-card pending-card">
             <h2>Actividades pendientes</h2>
             <div id="pendingLoading" class="list-loading">
               <img
@@ -379,19 +405,7 @@
             </div>
             <ul id="pendingList" class="stats-list"></ul>
           </div>
-          <div class="card">
-            <h2>Actividades realizadas</h2>
-            <div id="doneLoading" class="list-loading">
-              <img
-                class="loading-gif"
-                src="https://upload.wikimedia.org/wikipedia/commons/c/c7/Loading_2.gif?_=20170503175831"
-                alt="Cargando lista realizadas"
-              />
-              <span>Cargando lista...</span>
-            </div>
-            <ul id="doneList" class="stats-list"></ul>
-          </div>
-          <div class="card">
+          <div class="card dashboard-card participant-card">
             <h2>Actividades donde participo</h2>
             <div id="participantLoading" class="list-loading">
               <img
@@ -402,6 +416,18 @@
               <span>Cargando lista...</span>
             </div>
             <ul id="participantList" class="stats-list"></ul>
+          </div>
+          <div class="card dashboard-card done-card">
+            <h2>Actividades realizadas</h2>
+            <div id="doneLoading" class="list-loading">
+              <img
+                class="loading-gif"
+                src="https://upload.wikimedia.org/wikipedia/commons/c/c7/Loading_2.gif?_=20170503175831"
+                alt="Cargando lista realizadas"
+              />
+              <span>Cargando lista...</span>
+            </div>
+            <ul id="doneList" class="stats-list"></ul>
           </div>
         </div>
 
@@ -521,6 +547,7 @@
     <script>
       let initialData = null;
       let selectedActivityId = '';
+      let selectedQuarter = '';
       let pendingSupportAreaSelection = [];
       let selectedCarreras = [];
 
@@ -595,6 +622,7 @@
             ul.innerHTML = `<li class="muted">${emptyMessage}</li>`;
             return;
           }
+          const detailMode = Boolean(selectedActivityId);
           ul.innerHTML = activities
             .map((a) => {
               const rolBadge = a.esPropietario
@@ -602,9 +630,14 @@
                 : '<span class="badge badge-participant">Participante (solo lectura)</span>';
               const isSelected = selectedActivityId && a.actividadId === selectedActivityId ? 'is-selected' : '';
               const involved = (a.areasInvolucradasLista || []).join(', ') || 'Sin áreas involucradas';
+              const actionLabel = isSelected ? 'Cerrar detalle' : 'Ver detalle';
               const detailBtn = showDetailButton
-                ? `<button class="outline-btn detail-btn" data-id="${escapeHtml(a.actividadId)}" type="button">Ver detalle</button>`
+                ? `<button class="outline-btn detail-btn" data-id="${escapeHtml(a.actividadId)}" type="button">${actionLabel}</button>`
                 : '';
+              if (detailMode) {
+                const compactAction = detailBtn ? ` [${detailBtn}]` : '';
+                return `<li class="activity-item ${isSelected}"><div><strong>${escapeHtml(a.actividad)}</strong> : ${escapeHtml(a.coordinacion)}${compactAction}</div></li>`;
+              }
               return `<li class="activity-item ${isSelected}"><div><strong>${escapeHtml(a.actividadId)}</strong> - ${escapeHtml(a.actividad)} <span class="muted">(${escapeHtml(a.indicadorPoa)})</span></div><div class="activity-meta">${rolBadge}<span class="muted">Dueño: ${escapeHtml(a.coordinacion)}</span>${detailBtn}</div><div class="muted">Áreas involucradas: ${escapeHtml(involved)}</div></li>`;
             })
             .join('');
@@ -651,6 +684,15 @@
         renderActivities('pendingList', initialData.actividadesPendientes, 'No List.', { showDetailButton: true });
         renderActivities('doneList', initialData.actividadesCompletadas);
         renderActivities('participantList', initialData.actividadesParticipante, 'No participas en actividades de otras áreas.', { showDetailButton: true });
+      }
+
+      function closeActivityDetail() {
+        selectedActivityId = '';
+        document.getElementById('activityDetailCard').classList.add('hidden');
+        document.getElementById('activityDetail').innerHTML = '';
+        setFormEditableState(null);
+        refreshSupportAreasState();
+        rerenderActivityLists();
       }
 
       function setFormEditableState(activity) {
@@ -730,7 +772,7 @@
         actions.classList.remove('hidden');
       }
 
-      function showActivityDetail(activityId) {
+      function showActivityDetail(activityId, { openAccordion = true } = {}) {
         const detailCard = document.getElementById('activityDetailCard');
         const detail = document.getElementById('activityDetail');
         const activity = getActivityById(activityId);
@@ -794,7 +836,7 @@
           </div>
         `;
         detailCard.classList.remove('hidden');
-        document.getElementById('activityDetailAccordion').open = false;
+        document.getElementById('activityDetailAccordion').open = openAccordion;
         setFormEditableState(activity);
         refreshSupportAreasState();
       }
@@ -804,7 +846,12 @@
         if (!btn) {
           return;
         }
-        showActivityDetail(btn.dataset.id || '');
+        const clickedId = btn.dataset.id || '';
+        if (selectedActivityId && selectedActivityId === clickedId) {
+          closeActivityDetail();
+          return;
+        }
+        showActivityDetail(clickedId, { openAccordion: true });
       });
 
       document.getElementById('agregarAreasBtn').addEventListener('click', () => {
@@ -838,7 +885,7 @@
               activity.otrasAreas = (res.otrasAreas || []).join(', ');
             }
             refreshSupportAreasState();
-            showActivityDetail(selected.actividadId);
+            showActivityDetail(selected.actividadId, { openAccordion: true });
             document.getElementById('supportAreaEditor').classList.add('hidden');
             document.getElementById('supportAreaEditorActions').classList.add('hidden');
           })
@@ -885,7 +932,23 @@
         });
       }
 
-      google.script.run
+      function renderQuarterOptions(currentQuarter) {
+        const select = document.getElementById('quarterSelect');
+        const options = [1, 2, 3, 4].map((quarter) => {
+          const selected = Number(currentQuarter) === quarter ? 'selected' : '';
+          const label = `${['I', 'II', 'III', 'IV'][quarter - 1]} Cuatrimestre`;
+          return `<option value="${quarter}" ${selected}>${label}</option>`;
+        });
+        select.innerHTML = options.join('');
+      }
+
+      function loadInitialData(quarterValue) {
+        setGlobalLoading(true);
+        setContentVisibility({ showAuthorizedContent: false, showHelp: false });
+        selectedActivityId = '';
+        document.getElementById('activityDetailCard').classList.add('hidden');
+        document.getElementById('activityDetail').innerHTML = '';
+        google.script.run
         .withSuccessHandler((data) => {
           setGlobalLoading(false);
           if (!data || data.authorized !== true) {
@@ -897,6 +960,8 @@
 
           setContentVisibility({ showAuthorizedContent: true, showHelp: false });
           initialData = data;
+          selectedQuarter = String(data.cuatrimestreSeleccionado || '');
+          renderQuarterOptions(selectedQuarter);
           document.getElementById('userInfo').textContent = `${data.userEmail} | ${data.coordinacion}`;
           document.getElementById('userInfo').className = 'user-chip';
           setListLoading('pendingList', true);
@@ -906,7 +971,7 @@
           setListLoading('pendingList', false);
           renderActivities('doneList', data.actividadesCompletadas);
           setListLoading('doneList', false);
-          renderActivities('participantList', data.actividadesParticipante, 'No participas en actividades de otras áreas.');
+          renderActivities('participantList', data.actividadesParticipante, 'No participas en actividades de otras áreas.', { showDetailButton: true });
           setListLoading('participantList', false);
 
           setSelectListLoading('tipoActividad', true);
@@ -947,7 +1012,15 @@
           document.getElementById('userInfo').className = 'err';
           setContentVisibility({ showAuthorizedContent: false, showHelp: false });
         })
-        .getInitialData();
+        .getInitialData(quarterValue || '');
+      }
+
+      document.getElementById('quarterSelect').addEventListener('change', (event) => {
+        const quarterValue = event.target.value || '';
+        loadInitialData(quarterValue);
+      });
+
+      loadInitialData('');
 
       document.getElementById('registroForm').addEventListener('submit', async (event) => {
         event.preventDefault();

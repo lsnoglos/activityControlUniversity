@@ -87,7 +87,7 @@ function initializeSheets() {
   ensureSheetWithHeaders_(ss, SHEETS.LISTAS, ['tipoActividad', 'tipoProtagonista', 'indicadorPoa', 'indicadorEstrategia', 'carreras']);
 }
 
-function getInitialData() {
+function getInitialData(cuatrimestreSolicitado) {
   const userEmail = Session.getActiveUser().getEmail();
   const coordinador = getCoordinatorByEmail_(userEmail);
   if (!coordinador) {
@@ -98,7 +98,9 @@ function getInitialData() {
     };
   }
 
-  const actividadesVisibles = getVisibleActivities_(coordinador.coordinacion);
+  const cuatrimestreActual = getCurrentQuarter_();
+  const cuatrimestreSeleccionado = normalizeQuarter_(cuatrimestreSolicitado, cuatrimestreActual);
+  const actividadesVisibles = getVisibleActivities_(coordinador.coordinacion, cuatrimestreSeleccionado);
   const actividadesPropias = actividadesVisibles.filter(
     (a) => a.esPropietario === true
   );
@@ -123,6 +125,8 @@ function getInitialData() {
     authorized: true,
     userEmail,
     coordinacion: coordinador.coordinacion,
+    cuatrimestreActual,
+    cuatrimestreSeleccionado,
     actividadesPendientes: actividadesPendientes.map(markCompletion),
     actividadesCompletadas: actividadesCompletadas.map(markCompletion),
     actividadesParticipante: actividadesVisibles.filter(
@@ -219,8 +223,9 @@ function getActivitiesByCoordination_(coordinacion) {
   );
 }
 
-function getVisibleActivities_(coordinacion) {
+function getVisibleActivities_(coordinacion, cuatrimestre) {
   const normalizedCoord = normalizeText_(coordinacion);
+  const normalizedQuarter = normalizeQuarter_(cuatrimestre, getCurrentQuarter_());
   return getSheetObjects_(SHEETS.ACTIVIDADES, HEADERS.ACTIVIDADES)
     .map((row) => {
       const owner = String(row.coordinacion || '').trim();
@@ -229,6 +234,7 @@ function getVisibleActivities_(coordinacion) {
       const isInvolved = involvedAreas.includes(normalizedCoord);
       return {
         ...row,
+        cuatrimestre: String(row.cuatrimestre || '').trim(),
         coordinacion: owner,
         areasInvolucradasLista: splitList_(row.areasInvolucradas),
         otrasAreasLista: splitList_(row.otrasAreas),
@@ -236,7 +242,7 @@ function getVisibleActivities_(coordinacion) {
         esParticipante: !isOwner && isInvolved
       };
     })
-    .filter((row) => row.esPropietario || row.esParticipante);
+    .filter((row) => (row.esPropietario || row.esParticipante) && String(row.cuatrimestre || '').trim() === String(normalizedQuarter));
 }
 
 function getActivityById_(actividadId) {
@@ -396,6 +402,19 @@ function splitList_(value) {
 
 function normalizeText_(value) {
   return String(value || '').trim().toLowerCase();
+}
+
+function getCurrentQuarter_() {
+  const month = Number(Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'M'));
+  return Math.ceil(month / 4);
+}
+
+function normalizeQuarter_(value, fallbackQuarter) {
+  const raw = Number(String(value || '').trim());
+  if ([1, 2, 3, 4].indexOf(raw) >= 0) {
+    return raw;
+  }
+  return fallbackQuarter;
 }
 
 function uploadEvidenceFiles_(files, indicadorPoa, coordinacion, actividadId) {
