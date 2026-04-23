@@ -635,7 +635,7 @@
                 ? `<button class="outline-btn detail-btn" data-id="${escapeHtml(a.actividadId)}" type="button">${actionLabel}</button>`
                 : '';
               if (detailMode) {
-                const compactAction = detailBtn ? ` [${detailBtn}]` : '';
+                const compactAction = detailBtn ? ` ${detailBtn}` : '';
                 return `<li class="activity-item ${isSelected}"><div><strong>${escapeHtml(a.actividad)}</strong> : ${escapeHtml(a.coordinacion)}${compactAction}</div></li>`;
               }
               return `<li class="activity-item ${isSelected}"><div><strong>${escapeHtml(a.actividadId)}</strong> - ${escapeHtml(a.actividad)} <span class="muted">(${escapeHtml(a.indicadorPoa)})</span></div><div class="activity-meta">${rolBadge}<span class="muted">Dueño: ${escapeHtml(a.coordinacion)}</span>${detailBtn}</div><div class="muted">Áreas involucradas: ${escapeHtml(involved)}</div></li>`;
