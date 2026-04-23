@@ -49,13 +49,15 @@
 
       .hero {
         display: flex;
-        flex-wrap: wrap;
+        flex-wrap: nowrap;
         gap: 12px;
         justify-content: space-between;
         align-items: center;
         background: linear-gradient(125deg, var(--primary), var(--primary-2));
         color: #fff;
         border: none;
+        padding-top: 14px;
+        padding-bottom: 14px;
       }
 
       h1, h2 {
@@ -84,7 +86,7 @@
         display: flex;
         gap: 10px;
         align-items: center;
-        flex-wrap: wrap;
+        flex-wrap: nowrap;
         justify-content: flex-end;
       }
 
@@ -352,6 +354,10 @@
 
       @media (max-width: 900px) {
         body { padding: 14px; }
+        .hero,
+        .hero-controls {
+          flex-wrap: wrap;
+        }
         .dashboard-grid,
         .form-grid,
         .form-grid.triple {
@@ -371,7 +377,7 @@
   <body>
     <div class="page">
       <div class="card hero">
-        <h1>Control de Actividades POA</h1>
+        <h1>Actividades POA</h1>
         <div class="hero-controls">
           <select id="quarterSelect" class="quarter-select"></select>
           <p id="userInfo" class="user-chip">Cargando...</p>
