@@ -21,6 +21,11 @@
 
       * { box-sizing: border-box; }
 
+      html {
+        -webkit-text-size-adjust: 100%;
+        text-size-adjust: 100%;
+      }
+
       body {
         margin: 0;
         padding: 20px;
@@ -375,7 +380,7 @@
         height: 20px;
       }
 
-      @media (max-width: 1100px) {
+      @media (max-width: 1200px), (pointer: coarse) {
         body { padding: 14px; }
         .page { max-width: none; }
         .hero,
@@ -409,6 +414,7 @@
       @media (max-width: 768px), (pointer: coarse) {
         body {
           padding: 12px;
+          font-size: clamp(15px, 4vw, 17px);
         }
 
         .page {
