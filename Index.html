@@ -74,6 +74,10 @@
         background: rgba(255,255,255,0.16);
         border: 1px solid rgba(255,255,255,0.28);
         font-size: 0.9rem;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        max-width: min(42vw, 320px);
       }
 
       .dashboard-grid {
@@ -107,6 +111,12 @@
         padding: 0;
         display: grid;
         gap: 8px;
+      }
+
+      .stats-list.mobile-scroll {
+        max-height: 340px;
+        overflow: auto;
+        padding-right: 4px;
       }
 
       .stats-list li {
@@ -162,6 +172,10 @@
         border: 1px solid var(--border);
         padding: 6px 10px;
         font-size: 0.82rem;
+      }
+
+      .list-more-btn {
+        margin-top: 10px;
       }
 
       .detail-grid {
@@ -358,6 +372,15 @@
         .hero-controls {
           flex-wrap: wrap;
         }
+        .hero-controls {
+          width: 100%;
+          justify-content: stretch;
+        }
+        .quarter-select,
+        .user-chip {
+          width: 100%;
+          max-width: none;
+        }
         .dashboard-grid,
         .form-grid,
         .form-grid.triple {
@@ -410,6 +433,7 @@
               <span>Cargando lista...</span>
             </div>
             <ul id="pendingList" class="stats-list"></ul>
+            <button id="pendingListToggle" type="button" class="outline-btn list-more-btn hidden">Mostrar todo...</button>
           </div>
           <div class="card dashboard-card participant-card">
             <h2>Actividades donde participo</h2>
@@ -422,6 +446,7 @@
               <span>Cargando lista...</span>
             </div>
             <ul id="participantList" class="stats-list"></ul>
+            <button id="participantListToggle" type="button" class="outline-btn list-more-btn hidden">Mostrar todo...</button>
           </div>
           <div class="card dashboard-card done-card">
             <h2>Actividades realizadas</h2>
@@ -556,6 +581,14 @@
       let selectedQuarter = '';
       let pendingSupportAreaSelection = [];
       let selectedCarreras = [];
+      const expandedLists = {
+        pendingList: false,
+        participantList: false
+      };
+
+      function isMobileView() {
+        return window.matchMedia('(max-width: 900px)').matches;
+      }
 
       function escapeHtml(value) {
         return String(value || '')
@@ -624,12 +657,25 @@
       function renderActivities(listId, activities, emptyMessage = 'No List.', { showDetailButton = false } = {}) {
         const ul = document.getElementById(listId);
         try {
-          if (!Array.isArray(activities) || !activities.length) {
+          const safeActivities = Array.isArray(activities) ? activities : [];
+          const useMobileLimit = isMobileView() && (listId === 'pendingList' || listId === 'participantList');
+          const expanded = expandedLists[listId] || false;
+          const visibleActivities = useMobileLimit && !expanded
+            ? safeActivities.slice(0, 3)
+            : safeActivities;
+
+          ul.classList.toggle('mobile-scroll', useMobileLimit && expanded && safeActivities.length > 3);
+
+          if (!safeActivities.length) {
             ul.innerHTML = `<li class="muted">${emptyMessage}</li>`;
+            const toggle = document.getElementById(`${listId}Toggle`);
+            if (toggle) {
+              toggle.classList.add('hidden');
+            }
             return;
           }
           const detailMode = Boolean(selectedActivityId);
-          ul.innerHTML = activities
+          ul.innerHTML = visibleActivities
             .map((a) => {
               const rolBadge = a.esPropietario
                 ? '<span class="badge badge-owner">Dueño</span>'
@@ -647,6 +693,15 @@
               return `<li class="activity-item ${isSelected}"><div><strong>${escapeHtml(a.actividadId)}</strong> - ${escapeHtml(a.actividad)} <span class="muted">(${escapeHtml(a.indicadorPoa)})</span></div><div class="activity-meta">${rolBadge}<span class="muted">Dueño: ${escapeHtml(a.coordinacion)}</span>${detailBtn}</div><div class="muted">Áreas involucradas: ${escapeHtml(involved)}</div></li>`;
             })
             .join('');
+
+          const toggle = document.getElementById(`${listId}Toggle`);
+          if (toggle) {
+            const shouldShowToggle = useMobileLimit && safeActivities.length > 3;
+            toggle.classList.toggle('hidden', !shouldShowToggle);
+            if (shouldShowToggle) {
+              toggle.textContent = expanded ? 'Mostrar menos' : `Mostrar todo (${safeActivities.length})...`;
+            }
+          }
         } catch (e) {
           ul.innerHTML = `<li class="muted">${emptyMessage}</li>`;
         }
@@ -952,6 +1007,8 @@
         setGlobalLoading(true);
         setContentVisibility({ showAuthorizedContent: false, showHelp: false });
         selectedActivityId = '';
+        expandedLists.pendingList = false;
+        expandedLists.participantList = false;
         document.getElementById('activityDetailCard').classList.add('hidden');
         document.getElementById('activityDetail').innerHTML = '';
         google.script.run
@@ -1024,6 +1081,20 @@
       document.getElementById('quarterSelect').addEventListener('change', (event) => {
         const quarterValue = event.target.value || '';
         loadInitialData(quarterValue);
+      });
+
+      document.getElementById('pendingListToggle').addEventListener('click', () => {
+        expandedLists.pendingList = !expandedLists.pendingList;
+        rerenderActivityLists();
+      });
+
+      document.getElementById('participantListToggle').addEventListener('click', () => {
+        expandedLists.participantList = !expandedLists.participantList;
+        rerenderActivityLists();
+      });
+
+      window.addEventListener('resize', () => {
+        rerenderActivityLists();
       });
 
       loadInitialData('');
