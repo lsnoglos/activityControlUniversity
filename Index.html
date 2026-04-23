@@ -223,6 +223,36 @@
         gap: 6px;
       }
 
+      .multi-select {
+        position: relative;
+      }
+
+      .multi-select summary {
+        list-style: none;
+        border: 1px solid var(--border);
+        border-radius: 10px;
+        padding: 10px 11px;
+        background: #fff;
+        cursor: pointer;
+        color: var(--text);
+      }
+
+      .multi-select summary::-webkit-details-marker {
+        display: none;
+      }
+
+      .multi-select-options {
+        margin-top: 6px;
+        border: 1px solid var(--border);
+        border-radius: 10px;
+        padding: 10px;
+        background: var(--surface-muted);
+        display: grid;
+        gap: 6px;
+        max-height: 180px;
+        overflow: auto;
+      }
+
       label {
         font-size: 0.84rem;
         font-weight: 600;
@@ -383,18 +413,8 @@
         </div>
 
         <div id="registroCard" class="card hidden">
-          <h2>Registrar actividad</h2>
+          <h2 id="registroTitle">Registrar actividad</h2>
           <form id="registroForm">
-            <p id="registroHelp" class="muted">Selecciona una actividad pendiente para habilitar el registro.</p>
-            <div class="field">
-              <label>Actividad</label>
-              <select id="actividadId" required></select>
-              <div id="actividadIdLoading" class="select-list-loading">
-                <img class="loading-gif" src="https://upload.wikimedia.org/wikipedia/commons/c/c7/Loading_2.gif?_=20170503175831" alt="Cargando lista de actividades" />
-                <span>Loading list...</span>
-              </div>
-            </div>
-
           <div class="form-grid">
             <div class="field">
               <label>Estado</label>
@@ -415,6 +435,15 @@
               <label>Hora fin</label>
               <input id="horaFin" type="time" required />
             </div>
+          </div>
+
+          <div class="form-grid stats-row">
+            <div class="field"><label># alumnos hombres</label><input id="alumnosHombres" type="number" min="0" value="0" /></div>
+            <div class="field"><label># alumnas mujeres</label><input id="alumnasMujeres" type="number" min="0" value="0" /></div>
+            <div class="field"><label># docentes hombres</label><input id="docentesHombres" type="number" min="0" value="0" /></div>
+            <div class="field"><label># docentes mujeres</label><input id="docentesMujeres" type="number" min="0" value="0" /></div>
+            <div class="field"><label># administrativos hombres</label><input id="administrativosHombres" type="number" min="0" value="0" /></div>
+            <div class="field"><label># administrativas mujeres</label><input id="administrativasMujeres" type="number" min="0" value="0" /></div>
           </div>
 
           <div class="form-grid">
@@ -444,7 +473,14 @@
           <div class="form-grid">
             <div class="field">
               <label>Carreras involucradas</label>
-              <input id="carrerasInvolucradas" type="text" />
+              <details id="carrerasSelector" class="multi-select">
+                <summary id="carrerasResumen">Seleccionar carreras</summary>
+                <div id="carrerasOpciones" class="multi-select-options"></div>
+              </details>
+              <div id="carrerasLoading" class="select-list-loading">
+                <img class="loading-gif" src="https://upload.wikimedia.org/wikipedia/commons/c/c7/Loading_2.gif?_=20170503175831" alt="Cargando lista de carreras" />
+                <span>Loading list...</span>
+              </div>
             </div>
             <div class="field">
               <label>Área principal</label>
@@ -468,15 +504,6 @@
             </div>
           </div>
 
-          <div class="form-grid stats-row">
-            <div class="field"><label># alumnos hombres</label><input id="alumnosHombres" type="number" min="0" value="0" /></div>
-            <div class="field"><label># alumnas mujeres</label><input id="alumnasMujeres" type="number" min="0" value="0" /></div>
-            <div class="field"><label># docentes hombres</label><input id="docentesHombres" type="number" min="0" value="0" /></div>
-            <div class="field"><label># docentes mujeres</label><input id="docentesMujeres" type="number" min="0" value="0" /></div>
-            <div class="field"><label># administrativos hombres</label><input id="administrativosHombres" type="number" min="0" value="0" /></div>
-            <div class="field"><label># administrativas mujeres</label><input id="administrativasMujeres" type="number" min="0" value="0" /></div>
-          </div>
-
           <div class="field">
             <label>Fotos (opcional)</label>
             <input id="fotos" type="file" multiple accept="image/*" />
@@ -495,6 +522,7 @@
       let initialData = null;
       let selectedActivityId = '';
       let pendingSupportAreaSelection = [];
+      let selectedCarreras = [];
 
       function escapeHtml(value) {
         return String(value || '')
@@ -622,50 +650,46 @@
         if (!initialData) return;
         renderActivities('pendingList', initialData.actividadesPendientes, 'No List.', { showDetailButton: true });
         renderActivities('doneList', initialData.actividadesCompletadas);
-        renderActivities('participantList', initialData.actividadesParticipante, 'No participas en actividades de otras áreas.');
+        renderActivities('participantList', initialData.actividadesParticipante, 'No participas en actividades de otras áreas.', { showDetailButton: true });
       }
 
       function setFormEditableState(activity) {
         const form = document.getElementById('registroForm');
-        const help = document.getElementById('registroHelp');
         const submitBtn = form.querySelector('button[type="submit"]');
         const registroCard = document.getElementById('registroCard');
+        const registroTitle = document.getElementById('registroTitle');
         const isPendingOwner = activity && activity.esPropietario && !activity.estaFinalizada;
         const shouldLock = !isPendingOwner;
 
         Array.from(form.elements).forEach((element) => {
           if (!element || !element.id) return;
-          if (element.id === 'actividadId') return;
           if (element.id === 'agregarAreasBtn' || element.id === 'guardarOtrasAreasBtn' || element.id === 'cancelarOtrasAreasBtn') return;
           element.disabled = shouldLock;
         });
+        document.getElementById('carrerasSelector').open = false;
 
         submitBtn.disabled = shouldLock;
+        registroTitle.textContent = 'Registrar actividad';
         if (!activity) {
-          help.textContent = 'Selecciona una actividad pendiente para habilitar el registro.';
           registroCard.classList.add('hidden');
           return;
         }
         if (!activity.esPropietario) {
-          help.textContent = 'Actividad en la que participas: solo lectura.';
           registroCard.classList.add('hidden');
           return;
         }
         if (activity.estaFinalizada) {
-          help.textContent = 'Actividad finalizada: solo consulta, no se permite modificar.';
           registroCard.classList.add('hidden');
           return;
         }
-        help.textContent = 'Actividad pendiente seleccionada: puedes registrar información.';
+        registroTitle.textContent = `Registrar actividad ${activity.actividadId}`;
         registroCard.classList.remove('hidden');
       }
 
       function refreshSupportAreasState() {
         const btn = document.getElementById('agregarAreasBtn');
         const status = document.getElementById('areasApoyoEstado');
-        const selectedFromDetail = selectedActivityId ? getActivityById(selectedActivityId) : null;
-        const selectedFromForm = getActivityById(document.getElementById('actividadId').value);
-        const selected = selectedFromDetail || selectedFromForm;
+        const selected = selectedActivityId ? getActivityById(selectedActivityId) : null;
         const owner = selected && selected.esPropietario;
         btn.disabled = !owner;
         if (!selected) {
@@ -771,10 +795,6 @@
         `;
         detailCard.classList.remove('hidden');
         document.getElementById('activityDetailAccordion').open = false;
-        const actividadSelect = document.getElementById('actividadId');
-        if (activity.esPropietario && !activity.estaFinalizada) {
-          actividadSelect.value = activity.actividadId;
-        }
         setFormEditableState(activity);
         refreshSupportAreasState();
       }
@@ -787,17 +807,9 @@
         showActivityDetail(btn.dataset.id || '');
       });
 
-      document.getElementById('actividadId').addEventListener('change', () => {
-        const selected = getActivityById(document.getElementById('actividadId').value);
-        selectedActivityId = selected ? selected.actividadId : '';
-        rerenderActivityLists();
-        setFormEditableState(selected);
-        refreshSupportAreasState();
-      });
-
       document.getElementById('agregarAreasBtn').addEventListener('click', () => {
-        const selected = getActivityById(document.getElementById('actividadId').value);
-        renderSupportAreaEditor(selected);
+        const selected = selectedActivityId ? getActivityById(selectedActivityId) : null;
+        renderSupportAreaEditor(selected || null);
       });
 
       document.getElementById('cancelarOtrasAreasBtn').addEventListener('click', () => {
@@ -806,7 +818,7 @@
       });
 
       document.getElementById('guardarOtrasAreasBtn').addEventListener('click', () => {
-        const selected = getActivityById(document.getElementById('actividadId').value);
+        const selected = selectedActivityId ? getActivityById(selectedActivityId) : null;
         if (!selected || !selected.esPropietario) {
           return;
         }
@@ -837,6 +849,31 @@
             actividadId: selected.actividadId,
             otrasAreas: picked
           });
+      });
+
+      function renderCarrerasOptions(carreras) {
+        const box = document.getElementById('carrerasOpciones');
+        const uniqueCarreras = Array.from(new Set((carreras || []).map((c) => String(c || '').trim()).filter((c) => c !== '')));
+        if (!uniqueCarreras.length) {
+          box.innerHTML = '<span class="muted">No hay carreras configuradas.</span>';
+          return;
+        }
+        box.innerHTML = uniqueCarreras
+          .map((carrera) => `<label><input type="checkbox" class="carrera-checkbox" value="${escapeHtml(carrera)}" /> ${escapeHtml(carrera)}</label>`)
+          .join('');
+      }
+
+      function refreshCarrerasSummary() {
+        const summary = document.getElementById('carrerasResumen');
+        summary.textContent = selectedCarreras.length
+          ? selectedCarreras.join(', ')
+          : 'Seleccionar carreras';
+      }
+
+      document.getElementById('carrerasOpciones').addEventListener('change', () => {
+        selectedCarreras = Array.from(document.querySelectorAll('.carrera-checkbox:checked'))
+          .map((input) => input.value);
+        refreshCarrerasSummary();
       });
 
       function toBase64(file) {
@@ -872,17 +909,10 @@
           renderActivities('participantList', data.actividadesParticipante, 'No participas en actividades de otras áreas.');
           setListLoading('participantList', false);
 
-          setSelectListLoading('actividadId', true);
           setSelectListLoading('tipoActividad', true);
           setSelectListLoading('tipoProtagonista', true);
           setSelectListLoading('areaPrincipal', true);
-
-          optionize(
-            'actividadId',
-            data.actividadesPendientes.map((a) => a.actividadId),
-            { emptyMessage: 'No hay actividades propias para registrar.' }
-          );
-          setSelectListLoading('actividadId', false);
+          setSelectListLoading('carreras', true);
 
           const canRegister = (data.actividadesPendientes || []).length + (data.actividadesCompletadas || []).length > 0;
           if (!canRegister) {
@@ -899,15 +929,20 @@
 
           optionize('areaPrincipal', data.areas || [], { emptyMessage: 'No hay áreas disponibles.' });
           setSelectListLoading('areaPrincipal', false);
+          const carrerasData = getListPayload(data.listas, 'carreras');
+          renderCarrerasOptions(carrerasData.items || []);
+          setSelectListLoading('carreras', false);
+          selectedCarreras = [];
+          refreshCarrerasSummary();
           setFormEditableState(null);
           refreshSupportAreasState();
         })
         .withFailureHandler(() => {
           setGlobalLoading(false);
-          setSelectListLoading('actividadId', false);
           setSelectListLoading('tipoActividad', false);
           setSelectListLoading('tipoProtagonista', false);
           setSelectListLoading('areaPrincipal', false);
+          setSelectListLoading('carreras', false);
           document.getElementById('userInfo').textContent = 'No List.';
           document.getElementById('userInfo').className = 'err';
           setContentVisibility({ showAuthorizedContent: false, showHelp: false });
@@ -934,7 +969,7 @@
         }
 
         const payload = {
-          actividadId: document.getElementById('actividadId').value,
+          actividadId: selectedActivityId,
           estado: document.getElementById('estado').value,
           fechaActividad: document.getElementById('fechaActividad').value,
           horaInicio: document.getElementById('horaInicio').value,
@@ -947,7 +982,7 @@
           administrativasMujeres: document.getElementById('administrativasMujeres').value,
           tipoActividad: document.getElementById('tipoActividad').value,
           objetivoActividad: document.getElementById('objetivoActividad').value,
-          carrerasInvolucradas: document.getElementById('carrerasInvolucradas').value,
+          carrerasInvolucradas: selectedCarreras.join(', '),
           areaPrincipal: document.getElementById('areaPrincipal').value,
           areasApoyo: '',
           tipoProtagonista: document.getElementById('tipoProtagonista').value,
