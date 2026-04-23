@@ -21,14 +21,21 @@
 
       * { box-sizing: border-box; }
 
+      html, body {
+        width: 100%;
+        max-width: 100%;
+        overflow-x: hidden;
+        margin: 0;
+        padding: 0;
+      }
+
       html {
         -webkit-text-size-adjust: 100%;
         text-size-adjust: 100%;
       }
 
       body {
-        margin: 0;
-        padding: 20px;
+        padding: 12px;
         font-family: Inter, Segoe UI, Roboto, Arial, sans-serif;
         font-size: 16px;
         background:
@@ -39,10 +46,11 @@
       }
 
       .page {
-        max-width: 1120px;
+        width: 100%;
+        max-width: 100%;
         margin: 0 auto;
         display: grid;
-        gap: 16px;
+        gap: 12px;
       }
 
       .card {
@@ -56,7 +64,7 @@
 
       .hero {
         display: flex;
-        flex-wrap: nowrap;
+        flex-wrap: wrap;
         gap: 12px;
         justify-content: space-between;
         align-items: stretch;
@@ -108,12 +116,13 @@
         align-content: center;
         gap: 8px;
         flex: 0 1 55%;
-        min-width: 220px;
+        min-width: 0;
+        width: 100%;
       }
 
       .quarter-select {
-        width: fit-content;
-        min-width: 180px;
+        width: 100%;
+        min-width: 0;
         max-width: 100%;
         background: rgba(255,255,255,0.14);
         color: #fff;
@@ -269,7 +278,7 @@
       }
 
       .form-grid.stats-row {
-        grid-template-columns: repeat(6, minmax(120px, 1fr));
+        grid-template-columns: repeat(6, minmax(0, 1fr));
       }
 
       .support-areas-panel {
@@ -346,6 +355,10 @@
         background: #fff;
       }
 
+      input, select, textarea, button {
+        font-size: 16px;
+      }
+
       input:focus, select:focus, textarea:focus {
         outline: 3px solid rgba(31, 95, 181, 0.18);
         border-color: var(--primary-2);
@@ -363,7 +376,7 @@
       button {
         border: 0;
         border-radius: 10px;
-        padding: 12px 16px;
+        padding: 14px 16px;
         background: linear-gradient(125deg, var(--accent), #11926f);
         color: #fff;
         font-weight: 600;
@@ -408,9 +421,7 @@
         height: 20px;
       }
 
-      @media (max-width: 1200px), (pointer: coarse) {
-        body { padding: 14px; }
-        .page { max-width: none; }
+      @media (max-width: 768px) {
         .dashboard-grid,
         .form-grid,
         .form-grid.triple {
@@ -424,22 +435,10 @@
         .dashboard-card.done-card {
           display: none;
         }
-      }
-
-      @media (max-width: 768px), (pointer: coarse) {
-        body {
-          padding: 12px;
-          font-size: clamp(15px, 4vw, 17px);
-        }
-
-        .page {
-          gap: 12px;
-          max-width: none;
-        }
 
         .card {
           border-radius: 14px;
-          padding: 14px;
+          padding: 16px;
           box-shadow: 0 8px 22px rgba(16, 34, 61, 0.12);
         }
 
@@ -453,11 +452,11 @@
         }
 
         h1 {
-          font-size: 1.1rem;
+          font-size: 1.3rem;
         }
 
         h2 {
-          font-size: 1rem;
+          font-size: 1.05rem;
         }
 
         .user-chip {
@@ -466,14 +465,13 @@
         }
 
         .hero-controls {
-          min-width: 155px;
           gap: 6px;
+          justify-items: stretch;
         }
 
         .quarter-select {
-          min-width: 140px;
-          font-size: 0.74rem;
-          padding: 6px 28px 6px 9px;
+          font-size: 1rem;
+          padding: 10px 28px 10px 9px;
         }
 
         .stats-list li {
@@ -492,6 +490,40 @@
 
         .actions button {
           width: 100%;
+        }
+      }
+
+      @media (min-width: 769px) {
+        .dashboard-grid {
+          grid-template-columns: repeat(3, minmax(0, 1fr));
+        }
+
+        .form-grid {
+          grid-template-columns: repeat(2, minmax(0, 1fr));
+        }
+
+        .form-grid.triple {
+          grid-template-columns: repeat(3, minmax(0, 1fr));
+        }
+
+        .hero-controls {
+          width: auto;
+          justify-items: end;
+        }
+
+        .quarter-select {
+          width: auto;
+          min-width: 0;
+        }
+      }
+
+      @media (min-width: 1024px) {
+        .page {
+          max-width: 1120px;
+        }
+
+        body {
+          padding: 20px;
         }
       }
     </style>
