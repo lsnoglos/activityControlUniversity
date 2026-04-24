@@ -63,7 +63,8 @@ const HEADERS = {
     'tipoProtagonista',
     'actividadNombre',
     'indicadorPoa',
-    'urlsEvidencias'
+    'urlsEvidencias',
+    'documentoUrl'
   ]
 };
 
@@ -201,8 +202,208 @@ function registrarActividad(payload) {
     urlsEvidencias: evidencias.join(' | ')
   };
 
+  const docUrl = generarDocumentoActividad_(registro, actividad);
+  registro.documentoUrl = docUrl;
   appendObject_(SHEETS.REGISTROS, HEADERS.REGISTROS, registro);
-  return { ok: true, registroId: registro.registroId, evidencias };
+  return { ok: true, registroId: registro.registroId, documento: docUrl, evidencias };
+}
+
+function generarDocumentoActividad_(registro, actividad) {
+  const fechaDocumento = new Date(registro.fechaActividad);
+  const nombreDoc = `ACT_${registro.actividadId}_${registro.fechaActividad}`;
+  const carpetaDestino = getReportFolder_(fechaDocumento, registro.coordinacion);
+  const doc = DocumentApp.create(nombreDoc);
+  const body = doc.getBody();
+
+  body.clear();
+  buildDocumentHeader_(body);
+  buildGeneralInfoSection_(body, registro);
+  buildParticipationSection_(body, registro, actividad);
+  buildSimpleTextSection_(body, '3. INDICADOR', registro.indicadorPoa);
+  buildSimpleTextSection_(body, '4. OBJETIVO', registro.objetivoActividad);
+  buildParticipantsSection_(body, registro);
+  buildEvidenceSection_(body, registro.urlsEvidencias);
+  buildFooterSection_(body);
+  doc.saveAndClose();
+
+  const file = DriveApp.getFileById(doc.getId());
+  file.moveTo(carpetaDestino);
+
+  return doc.getUrl();
+}
+
+function buildDocumentHeader_(body) {
+  const titulo = body.appendParagraph('Universidad de Ciencias Comerciales');
+  titulo.setAlignment(DocumentApp.HorizontalAlignment.CENTER);
+  titulo.setBold(true);
+  titulo.setFontSize(18);
+
+  const subtitulo = body.appendParagraph('Reporte de Actividad POA');
+  subtitulo.setAlignment(DocumentApp.HorizontalAlignment.CENTER);
+  subtitulo.setBold(true);
+  subtitulo.setFontSize(18);
+
+  const fechaGeneracion = Utilities.formatDate(
+    new Date(),
+    Session.getScriptTimeZone(),
+    "dd/MM/yyyy HH:mm"
+  );
+  const fechaTexto = body.appendParagraph(`Generado automáticamente: ${fechaGeneracion}`);
+  fechaTexto.setAlignment(DocumentApp.HorizontalAlignment.CENTER);
+  fechaTexto.setFontSize(11);
+  fechaTexto.setSpacingAfter(14);
+}
+
+function buildGeneralInfoSection_(body, registro) {
+  appendSectionTitle_(body, '1. INFORMACIÓN GENERAL');
+  appendLabelValue_(body, 'Actividad', registro.actividadNombre);
+  appendLabelValue_(body, 'Código actividad', registro.actividadId);
+  appendLabelValue_(body, 'Realizada por', registro.coordinacion);
+  appendLabelValue_(body, 'Fecha', registro.fechaActividad);
+  appendLabelValue_(body, 'Hora', `${registro.horaInicio} a ${registro.horaFin}`);
+  appendLabelValue_(body, 'Estado', registro.estado);
+  body.appendParagraph('');
+}
+
+function buildParticipationSection_(body, registro, actividad) {
+  appendSectionTitle_(body, '2. PARTICIPACIÓN');
+  const coordinaciones = [actividad.areasInvolucradas, actividad.otrasAreas]
+    .filter((v) => String(v || '').trim() !== '')
+    .join(', ');
+  appendLabelValue_(body, 'Coordinaciones participantes', coordinaciones || 'No especificadas');
+  appendLabelValue_(body, 'Carreras participantes', registro.carrerasInvolucradas || 'No especificadas');
+  appendLabelValue_(body, 'Área principal', registro.areaPrincipal || 'No especificada');
+  appendLabelValue_(body, 'Áreas de apoyo', registro.areasApoyo || 'No especificadas');
+  body.appendParagraph('');
+}
+
+function buildSimpleTextSection_(body, titulo, contenido) {
+  appendSectionTitle_(body, titulo);
+  const p = body.appendParagraph(String(contenido || 'No especificado'));
+  p.setFontSize(11);
+  p.setSpacingAfter(10);
+}
+
+function buildParticipantsSection_(body, registro) {
+  appendSectionTitle_(body, '5. PARTICIPANTES');
+  const estudiantesM = Number(registro.alumnasMujeres || 0);
+  const estudiantesV = Number(registro.alumnosHombres || 0);
+  const docentesM = Number(registro.docentesMujeres || 0);
+  const docentesV = Number(registro.docentesHombres || 0);
+  const administrativosM = Number(registro.administrativasMujeres || 0);
+  const administrativosV = Number(registro.administrativosHombres || 0);
+  const totalM = estudiantesM + docentesM + administrativosM;
+  const totalV = estudiantesV + docentesV + administrativosV;
+
+  const table = body.appendTable([
+    ['Categoría', 'Mujeres', 'Varones'],
+    ['Estudiantes', String(estudiantesM), String(estudiantesV)],
+    ['Docentes', String(docentesM), String(docentesV)],
+    ['Administrativos', String(administrativosM), String(administrativosV)],
+    ['TOTAL', String(totalM), String(totalV)]
+  ]);
+  table.setBorderWidth(1);
+
+  const header = table.getRow(0);
+  for (let i = 0; i < header.getNumCells(); i += 1) {
+    header.getCell(i).editAsText().setBold(true);
+  }
+  const totalRow = table.getRow(4);
+  for (let j = 0; j < totalRow.getNumCells(); j += 1) {
+    totalRow.getCell(j).editAsText().setBold(true);
+  }
+  body.appendParagraph('');
+}
+
+function buildEvidenceSection_(body, urlsEvidencias) {
+  appendSectionTitle_(body, '6. EVIDENCIAS');
+  const evidencias = splitEvidenceUrls_(urlsEvidencias);
+  if (!evidencias.length) {
+    const p = body.appendParagraph('No se registraron evidencias.');
+    p.setFontSize(11);
+    return;
+  }
+
+  body.appendParagraph('Evidencias adjuntas').setBold(true).setFontSize(11);
+  evidencias.forEach((url) => {
+    const fileId = extractDriveFileId_(url);
+    if (fileId) {
+      try {
+        const blob = DriveApp.getFileById(fileId).getBlob();
+        body.appendImage(blob).setWidth(420);
+        return;
+      } catch (error) {}
+    }
+    body.appendParagraph(url).setLinkUrl(url).setFontSize(10);
+  });
+  body.appendParagraph('');
+}
+
+function buildFooterSection_(body) {
+  appendSectionTitle_(body, '7. PIE');
+  body.appendParagraph('Documento generado automáticamente por Sistema POA.').setFontSize(10);
+}
+
+function appendSectionTitle_(body, title) {
+  const p = body.appendParagraph(title);
+  p.setBold(true);
+  p.setFontSize(14);
+  p.setForegroundColor('#0B5394');
+  p.setSpacingBefore(8);
+  p.setSpacingAfter(4);
+}
+
+function appendLabelValue_(body, label, value) {
+  const p = body.appendParagraph(`${label}: ${String(value || 'No especificado')}`);
+  p.setFontSize(11);
+  p.setSpacingAfter(2);
+}
+
+function splitEvidenceUrls_(urlsEvidencias) {
+  return String(urlsEvidencias || '')
+    .split('|')
+    .map((url) => String(url || '').trim())
+    .filter((url) => url !== '');
+}
+
+function extractDriveFileId_(url) {
+  const text = String(url || '').trim();
+  if (!text) {
+    return '';
+  }
+  const directIdMatch = text.match(/[-\w]{25,}/);
+  if (text.indexOf('/d/') !== -1) {
+    const pathMatch = text.match(/\/d\/([-\w]{25,})/);
+    return pathMatch ? pathMatch[1] : '';
+  }
+  const queryMatch = text.match(/[?&]id=([-\w]{25,})/);
+  if (queryMatch) {
+    return queryMatch[1];
+  }
+  return directIdMatch ? directIdMatch[0] : '';
+}
+
+function getReportFolder_(fechaActividad, coordinacion) {
+  const reportesRoot = getOrCreateReportsRootFolder_();
+  const anio = Utilities.formatDate(fechaActividad, Session.getScriptTimeZone(), 'yyyy');
+  const mes = Utilities.formatDate(fechaActividad, Session.getScriptTimeZone(), 'MMMM');
+  const anioFolder = getOrCreateSubfolder_(reportesRoot, anio);
+  const coordinacionFolder = getOrCreateSubfolder_(anioFolder, sanitizeFolderName_(coordinacion));
+  return getOrCreateSubfolder_(coordinacionFolder, mes);
+}
+
+function getOrCreateReportsRootFolder_() {
+  const baseFolder = DRIVE_ROOT_FOLDER_ID !== 'REEMPLAZAR_CON_FOLDER_ID_PRINCIPAL'
+    ? DriveApp.getFolderById(DRIVE_ROOT_FOLDER_ID)
+    : DriveApp.getRootFolder();
+  return getOrCreateSubfolder_(baseFolder, 'POA_REPORTES');
+}
+
+function sanitizeFolderName_(value) {
+  return String(value || 'Sin coordinacion')
+    .replace(/[\\/:*?"<>|#]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
 }
 
 function getCoordinatorByEmail_(email) {
