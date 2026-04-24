@@ -6,6 +6,9 @@ const SHEETS = {
 };
 
 const DRIVE_ROOT_FOLDER_ID = 'REEMPLAZAR_CON_FOLDER_ID_PRINCIPAL';
+const DRIVE_ROOT_FOLDER_NAME = 'Registro POA';
+const DRIVE_REPORTS_FOLDER_NAME = 'POA_REPORTES';
+const INSTITUTIONAL_BLUE = '#1F4E78';
 const AREAS = [
   'Ingeniería Civil',
   'CCEEyJJ',
@@ -63,7 +66,9 @@ const HEADERS = {
     'tipoProtagonista',
     'actividadNombre',
     'indicadorPoa',
-    'urlsEvidencias'
+    'urlsEvidencias',
+    'documentoUrl',
+    'pdfUrl'
   ]
 };
 
@@ -165,12 +170,10 @@ function registrarActividad(payload) {
 
   const fecha = new Date(payload.fechaActividad);
   const mesSemana = getMonthAndWeek_(fecha);
-  const evidencias = uploadEvidenceFiles_(
-    payload.fotos || [],
-    actividad.indicadorPoa,
-    coordinador.coordinacion,
-    payload.actividadId
-  );
+  const areaNames = getParticipantAreaNames_(actividad, coordinador.coordinacion);
+  const participantEmails = getParticipantEmails_(areaNames);
+  const storage = prepareActivityStorage_(registroFolderNames_(actividad, payload), participantEmails);
+  const evidencias = uploadEvidenceFiles_(payload.fotos || [], storage.evidenceFolder, payload.actividadId);
 
   const registro = {
     timestampRegistro: new Date(),
@@ -198,11 +201,23 @@ function registrarActividad(payload) {
     tipoProtagonista: payload.tipoProtagonista,
     actividadNombre: actividad.actividad,
     indicadorPoa: actividad.indicadorPoa,
-    urlsEvidencias: evidencias.join(' | ')
+    urlsEvidencias: evidencias.join(' | '),
+    documentoUrl: '',
+    pdfUrl: ''
   };
 
+  const documentos = generarDocumentoActividad_(registro, actividad, storage, participantEmails);
+  registro.documentoUrl = documentos.documentoUrl || '';
+  registro.pdfUrl = documentos.pdfUrl || '';
+
   appendObject_(SHEETS.REGISTROS, HEADERS.REGISTROS, registro);
-  return { ok: true, registroId: registro.registroId, evidencias };
+  return {
+    ok: true,
+    registroId: registro.registroId,
+    evidencias,
+    documento: registro.documentoUrl,
+    pdf: registro.pdfUrl
+  };
 }
 
 function getCoordinatorByEmail_(email) {
@@ -417,25 +432,82 @@ function normalizeQuarter_(value, fallbackQuarter) {
   return fallbackQuarter;
 }
 
-function uploadEvidenceFiles_(files, indicadorPoa, coordinacion, actividadId) {
+function registroFolderNames_(actividad, payload) {
+  return {
+    indicadorNumero: extractIndicatorNumber_(actividad.indicadorPoa),
+    actividadNombre: sanitizeFolderName_(actividad.actividad || payload.actividadId || 'Actividad'),
+    coordinacion: sanitizeFolderName_(actividad.coordinacion || ''),
+    fechaActividad: payload.fechaActividad
+  };
+}
+
+function prepareActivityStorage_(names, participantEmails) {
+  const root = getConfiguredRootFolder_();
+  const registroRoot = getOrCreateSubfolder_(root, DRIVE_ROOT_FOLDER_NAME);
+  const indicatorFolder = getOrCreateSubfolder_(registroRoot, names.indicadorNumero);
+  const activityFolder = getOrCreateSubfolder_(indicatorFolder, names.actividadNombre);
+  const evidenceFolder = getOrCreateSubfolder_(activityFolder, 'Evidencias');
+
+  const dateValue = new Date(names.fechaActividad);
+  const year = Utilities.formatDate(dateValue, Session.getScriptTimeZone(), 'yyyy');
+  const month = Utilities.formatDate(dateValue, Session.getScriptTimeZone(), 'MM');
+  const reportsRoot = getOrCreateSubfolder_(root, DRIVE_REPORTS_FOLDER_NAME);
+  const yearFolder = getOrCreateSubfolder_(reportsRoot, year);
+  const coordFolder = getOrCreateSubfolder_(yearFolder, names.coordinacion || 'Sin coordinación');
+  const monthFolder = getOrCreateSubfolder_(coordFolder, month);
+
+  applyEditorsToFolder_(activityFolder, participantEmails);
+  applyEditorsToFolder_(evidenceFolder, participantEmails);
+  applyEditorsToFolder_(monthFolder, participantEmails);
+
+  return {
+    activityFolder,
+    evidenceFolder,
+    reportFolder: monthFolder
+  };
+}
+
+function uploadEvidenceFiles_(files, evidenceFolder, actividadId) {
   if (!files.length) {
     return [];
   }
-  if (DRIVE_ROOT_FOLDER_ID === 'REEMPLAZAR_CON_FOLDER_ID_PRINCIPAL') {
-    throw new Error('Configurar DRIVE_ROOT_FOLDER_ID antes de subir evidencias.');
-  }
-
-  const root = DriveApp.getFolderById(DRIVE_ROOT_FOLDER_ID);
-  const indicatorFolder = getOrCreateSubfolder_(root, String(indicadorPoa));
-  const coordinationFolder = getOrCreateSubfolder_(indicatorFolder, coordinacion);
-
   return files.map((file) => {
     const content = Utilities.base64Decode(file.base64);
     const blob = Utilities.newBlob(content, file.mimeType, file.fileName);
-    const saved = coordinationFolder.createFile(blob);
+    const saved = evidenceFolder.createFile(blob);
     saved.setDescription(`Actividad ${actividadId}`);
     return saved.getUrl();
   });
+}
+
+function generarDocumentoActividad_(registro, actividad, storage, participantEmails) {
+  const dateIso = formatDateForFileName_(registro.fechaActividad);
+  const docName = `ACT_${registro.actividadId}_${dateIso}`;
+  const docFile = DocumentApp.create(docName);
+  const doc = DocumentApp.openById(docFile.getId());
+  const body = doc.getBody();
+  buildActivityDocument_(body, registro, actividad);
+  doc.saveAndClose();
+
+  const source = DriveApp.getFileById(docFile.getId());
+  const copyInReport = source.makeCopy(docName, storage.reportFolder);
+  const copyInActivity = source.makeCopy(docName, storage.activityFolder);
+  source.setTrashed(true);
+
+  applyEditorsToFile_(copyInReport, participantEmails);
+  applyEditorsToFile_(copyInActivity, participantEmails);
+
+  const pdfBlob = DocumentApp.openById(copyInActivity.getId()).getAs(MimeType.PDF).setName(`${docName}.pdf`);
+  const pdfInActivity = storage.activityFolder.createFile(pdfBlob);
+  const pdfInReport = storage.reportFolder.createFile(pdfBlob.copyBlob().setName(`${docName}.pdf`));
+  applyEditorsToFile_(pdfInActivity, participantEmails);
+  applyEditorsToFile_(pdfInReport, participantEmails);
+
+  return {
+    documentoUrl: copyInActivity.getUrl(),
+    pdfUrl: pdfInActivity.getUrl(),
+    documentoReporteUrl: copyInReport.getUrl()
+  };
 }
 
 function getOrCreateSubfolder_(parentFolder, folderName) {
@@ -444,6 +516,234 @@ function getOrCreateSubfolder_(parentFolder, folderName) {
     return existing.next();
   }
   return parentFolder.createFolder(folderName);
+}
+
+function buildActivityDocument_(body, registro, actividad) {
+  body.clear();
+  body.setAttributes({
+    [DocumentApp.Attribute.FONT_FAMILY]: 'Arial',
+    [DocumentApp.Attribute.FONT_SIZE]: 11
+  });
+
+  appendTitle_(body, 'Universidad de Ciencias Comerciales');
+  appendTitle_(body, 'Reporte de Actividad POA');
+  appendNormalLine_(body, `Fecha de generación: ${formatDateTimeNow_()}`, true);
+  body.appendParagraph('');
+
+  appendSectionTitle_(body, '1. INFORMACIÓN GENERAL');
+  appendLabelValue_(body, 'Actividad', registro.actividadNombre);
+  appendLabelValue_(body, 'Código actividad', registro.actividadId);
+  appendLabelValue_(body, 'Realizada por', registro.coordinacion);
+  appendLabelValue_(body, 'Fecha', registro.fechaActividad);
+  appendLabelValue_(body, 'Hora', `${registro.horaInicio} a ${registro.horaFin}`);
+  appendLabelValue_(body, 'Estado', registro.estado);
+
+  appendSectionTitle_(body, '2. PARTICIPACIÓN');
+  appendLabelValue_(body, 'Coordinaciones participantes', joinNonEmpty_([actividad.areasInvolucradas, actividad.otrasAreas], ' | '));
+  appendLabelValue_(body, 'Carreras participantes', registro.carrerasInvolucradas);
+  appendLabelValue_(body, 'Área principal', registro.areaPrincipal);
+  appendLabelValue_(body, 'Áreas de apoyo', registro.areasApoyo);
+
+  appendSectionTitle_(body, '3. INDICADOR');
+  appendNormalLine_(body, registro.indicadorPoa || 'N/D');
+
+  appendSectionTitle_(body, '4. OBJETIVO');
+  appendNormalLine_(body, registro.objetivoActividad || 'N/D');
+
+  appendSectionTitle_(body, '5. PARTICIPANTES');
+  appendParticipantsTable_(body, registro);
+
+  appendSectionTitle_(body, '6. EVIDENCIAS');
+  appendEvidenceSection_(body, splitPipeList_(registro.urlsEvidencias));
+
+  appendSectionTitle_(body, '7. PIE');
+  appendNormalLine_(body, 'Documento generado automáticamente por Sistema POA.');
+}
+
+function appendTitle_(body, text) {
+  const p = body.appendParagraph(text || '');
+  p.setAlignment(DocumentApp.HorizontalAlignment.CENTER);
+  p.setBold(true);
+  p.setFontSize(18);
+}
+
+function appendSectionTitle_(body, text) {
+  const p = body.appendParagraph(text || '');
+  p.setBold(true);
+  p.setFontSize(14);
+  p.setForegroundColor(INSTITUTIONAL_BLUE);
+  p.setSpacingBefore(14);
+  p.setSpacingAfter(6);
+}
+
+function appendLabelValue_(body, label, value) {
+  const p = body.appendParagraph(`${label}: ${value || 'N/D'}`);
+  p.setFontSize(11);
+  p.setSpacingAfter(4);
+}
+
+function appendNormalLine_(body, text, isMuted) {
+  const p = body.appendParagraph(text || '');
+  p.setFontSize(11);
+  if (isMuted) {
+    p.setForegroundColor('#5f6368');
+  }
+}
+
+function appendParticipantsTable_(body, registro) {
+  const alumnosM = Number(registro.alumnosHombres || 0);
+  const alumnasF = Number(registro.alumnasMujeres || 0);
+  const docentesM = Number(registro.docentesHombres || 0);
+  const docentesF = Number(registro.docentesMujeres || 0);
+  const admM = Number(registro.administrativosHombres || 0);
+  const admF = Number(registro.administrativasMujeres || 0);
+  const totalM = alumnosM + docentesM + admM;
+  const totalF = alumnasF + docentesF + admF;
+
+  const table = body.appendTable([
+    ['Categoría', 'Mujeres', 'Varones'],
+    ['Estudiantes', String(alumnasF), String(alumnosM)],
+    ['Docentes', String(docentesF), String(docentesM)],
+    ['Administrativos', String(admF), String(admM)],
+    ['TOTAL', String(totalF), String(totalM)]
+  ]);
+
+  table.setBorderWidth(1);
+  const headerRow = table.getRow(0);
+  for (let c = 0; c < headerRow.getNumCells(); c++) {
+    headerRow.getCell(c).setBackgroundColor('#E8EEF7').editAsText().setBold(true);
+  }
+}
+
+function appendEvidenceSection_(body, evidenceUrls) {
+  if (!evidenceUrls.length) {
+    appendNormalLine_(body, 'No se registraron evidencias.');
+    return;
+  }
+  appendNormalLine_(body, 'Evidencias adjuntas');
+  evidenceUrls.forEach((url, index) => {
+    const fileId = extractDriveFileId_(url);
+    if (fileId) {
+      try {
+        const imageBlob = DriveApp.getFileById(fileId).getBlob();
+        body.appendImage(imageBlob).setWidth(450);
+        return;
+      } catch (error) {
+        // Si falla inserción de imagen, dejar enlace.
+      }
+    }
+    const p = body.appendParagraph(`Evidencia ${index + 1}`);
+    p.setLinkUrl(url);
+    p.setForegroundColor('#1155CC');
+  });
+}
+
+function getConfiguredRootFolder_() {
+  if (DRIVE_ROOT_FOLDER_ID === 'REEMPLAZAR_CON_FOLDER_ID_PRINCIPAL') {
+    throw new Error('Configurar DRIVE_ROOT_FOLDER_ID antes de registrar actividades con evidencias/documentos.');
+  }
+  return DriveApp.getFolderById(DRIVE_ROOT_FOLDER_ID);
+}
+
+function applyEditorsToFolder_(folder, emails) {
+  const uniqueEmails = uniqueEmails_(emails);
+  uniqueEmails.forEach((email) => {
+    try {
+      folder.addEditor(email);
+    } catch (error) {
+      Logger.log(`No fue posible agregar editor ${email} a carpeta ${folder.getName()}: ${error}`);
+    }
+  });
+}
+
+function applyEditorsToFile_(file, emails) {
+  const uniqueEmails = uniqueEmails_(emails);
+  uniqueEmails.forEach((email) => {
+    try {
+      file.addEditor(email);
+    } catch (error) {
+      Logger.log(`No fue posible agregar editor ${email} a archivo ${file.getName()}: ${error}`);
+    }
+  });
+}
+
+function getParticipantAreaNames_(actividad, ownerCoordination) {
+  const areas = []
+    .concat(splitList_(actividad.areasInvolucradas))
+    .concat(splitList_(actividad.otrasAreas))
+    .concat([ownerCoordination]);
+  return Array.from(new Set(areas.map((v) => String(v || '').trim()).filter((v) => v !== '')));
+}
+
+function getParticipantEmails_(areas) {
+  const coordinadores = getSheetObjects_(SHEETS.COORDINADORES, HEADERS.COORDINADORES);
+  const normalizedAreas = new Set(areas.map((area) => normalizeText_(area)));
+  const emails = coordinadores
+    .filter((c) => String(c.activo).toLowerCase() !== 'false' && normalizedAreas.has(normalizeText_(c.coordinacion)))
+    .map((c) => String(c.correo || '').trim().toLowerCase())
+    .filter((email) => email !== '');
+  return Array.from(new Set(emails));
+}
+
+function uniqueEmails_(emails) {
+  return Array.from(
+    new Set((emails || []).map((e) => String(e || '').trim().toLowerCase()).filter((e) => e !== ''))
+  );
+}
+
+function extractIndicatorNumber_(indicadorPoa) {
+  const raw = String(indicadorPoa || '').trim();
+  const numberMatch = raw.match(/\d+/);
+  return numberMatch ? numberMatch[0] : 'Sin indicador';
+}
+
+function sanitizeFolderName_(value) {
+  return String(value || '')
+    .replace(/[\\/:*?"<>|#%{}~]/g, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+function formatDateForFileName_(value) {
+  const dateValue = new Date(value);
+  if (String(dateValue) === 'Invalid Date') {
+    return Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'yyyy-MM-dd');
+  }
+  return Utilities.formatDate(dateValue, Session.getScriptTimeZone(), 'yyyy-MM-dd');
+}
+
+function splitPipeList_(value) {
+  return String(value || '')
+    .split('|')
+    .map((v) => String(v || '').trim())
+    .filter((v) => v !== '');
+}
+
+function joinNonEmpty_(values, separator) {
+  return (values || [])
+    .map((v) => String(v || '').trim())
+    .filter((v) => v !== '')
+    .join(separator || ', ');
+}
+
+function extractDriveFileId_(url) {
+  const raw = String(url || '').trim();
+  if (!raw) {
+    return null;
+  }
+  const idByD = raw.match(/\/d\/([a-zA-Z0-9_-]+)/);
+  if (idByD && idByD[1]) {
+    return idByD[1];
+  }
+  const idByParam = raw.match(/[?&]id=([a-zA-Z0-9_-]+)/);
+  if (idByParam && idByParam[1]) {
+    return idByParam[1];
+  }
+  return null;
+}
+
+function formatDateTimeNow_() {
+  return Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'yyyy-MM-dd HH:mm');
 }
 
 function getMonthAndWeek_(dateValue) {
@@ -510,6 +810,9 @@ function appendObject_(sheetName, headers, obj) {
   if (!sh) {
     throw new Error(`No existe la hoja ${sheetName}.`);
   }
-  const row = headers.map((header) => obj[header] || '');
+  const row = headers.map((header) => {
+    const value = obj[header];
+    return value === undefined || value === null ? '' : value;
+  });
   sh.appendRow(row);
 }
