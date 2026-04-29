@@ -347,14 +347,19 @@
       }
 
       .multi-select-options {
-        margin-top: 6px;
+        position: absolute;
+        top: calc(100% + 8px);
+        left: 0;
+        right: 0;
+        z-index: 40;
         border: 1px solid var(--border);
-        border-radius: 10px;
-        padding: 10px;
-        background: var(--surface-muted);
+        border-radius: 12px;
+        padding: 12px;
+        background: #fff;
+        box-shadow: 0 10px 24px rgba(16, 34, 61, 0.14);
         display: none;
-        gap: 8px;
-        max-height: 220px;
+        gap: 10px;
+        max-height: 250px;
         overflow: auto;
       }
 
@@ -367,6 +372,15 @@
         align-items: center;
         gap: 10px;
         font-weight: 500;
+        cursor: pointer;
+      }
+
+      .multi-select-option input[type='checkbox'] {
+        width: 22px;
+        height: 22px;
+        margin: 0;
+        flex: 0 0 auto;
+        accent-color: #4f7de2;
       }
 
       label {
