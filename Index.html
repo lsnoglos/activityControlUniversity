@@ -313,18 +313,37 @@
         position: relative;
       }
 
-      .multi-select summary {
-        list-style: none;
-        border: 1px solid var(--border);
-        border-radius: 10px;
-        padding: 10px 11px;
-        background: #fff;
-        cursor: pointer;
-        color: var(--text);
+      .multi-select-native {
+        position: absolute;
+        opacity: 0;
+        pointer-events: none;
+        width: 1px;
+        height: 1px;
       }
 
-      .multi-select summary::-webkit-details-marker {
-        display: none;
+      .multi-select-toggle {
+        width: 100%;
+        border: 1px solid var(--border);
+        border-radius: 10px;
+        padding: 12px;
+        background: #fff;
+        color: var(--text);
+        cursor: pointer;
+        text-align: left;
+        font-weight: 600;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+      }
+
+      .multi-select-toggle::after {
+        content: '▾';
+        color: var(--primary-2);
+        font-size: 1rem;
+      }
+
+      .multi-select.is-open .multi-select-toggle::after {
+        content: '▴';
       }
 
       .multi-select-options {
@@ -333,10 +352,21 @@
         border-radius: 10px;
         padding: 10px;
         background: var(--surface-muted);
-        display: grid;
-        gap: 6px;
-        max-height: 180px;
+        display: none;
+        gap: 8px;
+        max-height: 220px;
         overflow: auto;
+      }
+
+      .multi-select.is-open .multi-select-options {
+        display: grid;
+      }
+
+      .multi-select-option {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        font-weight: 500;
       }
 
       label {
@@ -635,7 +665,11 @@
             </div>
             <div class="field">
               <label>Tipo de protagonista</label>
-              <select id="tipoProtagonista" multiple size="4"></select>
+              <div class="multi-select" data-multiselect="tipoProtagonista">
+                <select id="tipoProtagonista" class="multi-select-native" multiple size="4"></select>
+                <button type="button" class="multi-select-toggle" data-ms-toggle>Selecciona opciones</button>
+                <div class="multi-select-options" data-ms-options></div>
+              </div>
               <div id="tipoProtagonistaLoading" class="select-list-loading">
                 <img class="loading-gif" src="https://i.sstatic.net/kOnzy.gif" alt="Cargando lista de tipo de protagonista" />
                 <span>Loading list...</span>
@@ -650,7 +684,11 @@
 
           <div class="field">
             <label>Carreras involucradas</label>
-            <select id="carrerasInvolucradas" multiple size="6"></select>
+            <div class="multi-select" data-multiselect="carrerasInvolucradas">
+              <select id="carrerasInvolucradas" class="multi-select-native" multiple size="6"></select>
+              <button type="button" class="multi-select-toggle" data-ms-toggle>Selecciona opciones</button>
+              <div class="multi-select-options" data-ms-options></div>
+            </div>
             <div id="carrerasLoading" class="select-list-loading">
               <img class="loading-gif" src="https://i.sstatic.net/kOnzy.gif" alt="Cargando lista de carreras" />
               <span>Loading list...</span>
@@ -708,6 +746,55 @@
       function setContentVisibility({ showAuthorizedContent, showHelp }) {
         document.getElementById('authorizedContent').classList.toggle('hidden', !showAuthorizedContent);
         document.getElementById('accessHelp').style.display = showHelp ? 'block' : 'none';
+      }
+
+
+      function setupMultiSelect(selectId) {
+        const container = document.querySelector(`[data-multiselect="${selectId}"]`);
+        const select = document.getElementById(selectId);
+        if (!container || !select) return;
+        const toggle = container.querySelector('[data-ms-toggle]');
+        const optionsBox = container.querySelector('[data-ms-options]');
+
+        function renderOptions() {
+          const options = Array.from(select.options || []);
+          optionsBox.innerHTML = options
+            .filter((option) => option.value)
+            .map((option, index) => {
+              const checked = option.selected ? 'checked' : '';
+              return `<label class="multi-select-option"><input type="checkbox" data-ms-option-index="${index}" ${checked} /> ${escapeHtml(option.textContent)}</label>`;
+            }).join('');
+          updateLabel();
+        }
+
+        function updateLabel() {
+          const selectedCount = Array.from(select.selectedOptions || []).filter((option) => option.value).length;
+          toggle.textContent = selectedCount ? `${selectedCount} seleccionado(s)` : 'Selecciona opciones';
+        }
+
+        toggle.addEventListener('click', () => {
+          container.classList.toggle('is-open');
+        });
+
+        optionsBox.addEventListener('change', (event) => {
+          if (!(event.target instanceof HTMLInputElement)) return;
+          const index = Number(event.target.dataset.msOptionIndex);
+          if (Number.isNaN(index) || !select.options[index]) return;
+          select.options[index].selected = event.target.checked;
+          select.dispatchEvent(new Event('change', { bubbles: true }));
+          updateLabel();
+        });
+
+        document.addEventListener('click', (event) => {
+          if (!container.contains(event.target)) {
+            container.classList.remove('is-open');
+          }
+        });
+
+        const observer = new MutationObserver(() => renderOptions());
+        observer.observe(select, { childList: true, subtree: true, attributes: true, attributeFilter: ['selected'] });
+        select.addEventListener('change', updateLabel);
+        renderOptions();
       }
 
       function optionize(selectId, values, { error, emptyMessage = 'No List.' } = {}) {
@@ -1205,6 +1292,9 @@
       window.addEventListener('resize', () => {
         rerenderActivityLists();
       });
+
+      setupMultiSelect('tipoProtagonista');
+      setupMultiSelect('carrerasInvolucradas');
 
       loadInitialData('');
 
