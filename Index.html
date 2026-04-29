@@ -541,7 +541,7 @@
       <div id="globalLoading" class="card global-loading">
         <img
           class="loading-gif"
-          src="https://upload.wikimedia.org/wikipedia/commons/c/c7/Loading_2.gif?_=20170503175831"
+          src="https://i.sstatic.net/kOnzy.gif"
           alt="Cargando"
         />
         <span class="muted">Cargando información...</span>
@@ -558,7 +558,7 @@
             <div id="pendingLoading" class="list-loading">
               <img
                 class="loading-gif"
-                src="https://upload.wikimedia.org/wikipedia/commons/c/c7/Loading_2.gif?_=20170503175831"
+                src="https://i.sstatic.net/kOnzy.gif"
                 alt="Cargando lista pendientes"
               />
               <span>Cargando lista...</span>
@@ -571,7 +571,7 @@
             <div id="participantLoading" class="list-loading">
               <img
                 class="loading-gif"
-                src="https://upload.wikimedia.org/wikipedia/commons/c/c7/Loading_2.gif?_=20170503175831"
+                src="https://i.sstatic.net/kOnzy.gif"
                 alt="Cargando lista participantes"
               />
               <span>Cargando lista...</span>
@@ -584,7 +584,7 @@
             <div id="doneLoading" class="list-loading">
               <img
                 class="loading-gif"
-                src="https://upload.wikimedia.org/wikipedia/commons/c/c7/Loading_2.gif?_=20170503175831"
+                src="https://i.sstatic.net/kOnzy.gif"
                 alt="Cargando lista realizadas"
               />
               <span>Cargando lista...</span>
@@ -593,24 +593,10 @@
           </div>
         </div>
 
-        <div id="activityDetailCard" class="card hidden">
-          <details id="activityDetailAccordion">
-            <summary><h2 style="display:inline;">Detalle de actividad</h2></summary>
-            <div id="activityDetail" style="margin-top: 10px;"></div>
-          </details>
-        </div>
-
         <div id="registroCard" class="card hidden">
           <h2 id="registroTitle">Registrar actividad</h2>
           <form id="registroForm">
           <div class="form-grid">
-            <div class="field">
-              <label>Estado</label>
-              <select id="estado" required>
-                <option value="En ejecución">En ejecución</option>
-                <option value="Finalizada">Finalizada</option>
-              </select>
-            </div>
             <div class="field">
               <label>Fecha</label>
               <input id="fechaActividad" type="date" required />
@@ -622,6 +608,10 @@
             <div class="field">
               <label>Hora fin</label>
               <input id="horaFin" type="time" required />
+            </div>
+            <div class="field">
+              <label>&nbsp;</label>
+              <button id="horaActualBtn" type="button">Hora actual</button>
             </div>
           </div>
 
@@ -639,15 +629,15 @@
               <label>Tipo de actividad</label>
               <select id="tipoActividad" required></select>
               <div id="tipoActividadLoading" class="select-list-loading">
-                <img class="loading-gif" src="https://upload.wikimedia.org/wikipedia/commons/c/c7/Loading_2.gif?_=20170503175831" alt="Cargando lista de tipo de actividad" />
+                <img class="loading-gif" src="https://i.sstatic.net/kOnzy.gif" alt="Cargando lista de tipo de actividad" />
                 <span>Loading list...</span>
               </div>
             </div>
             <div class="field">
               <label>Tipo de protagonista</label>
-              <select id="tipoProtagonista"></select>
+              <select id="tipoProtagonista" multiple size="4"></select>
               <div id="tipoProtagonistaLoading" class="select-list-loading">
-                <img class="loading-gif" src="https://upload.wikimedia.org/wikipedia/commons/c/c7/Loading_2.gif?_=20170503175831" alt="Cargando lista de tipo de protagonista" />
+                <img class="loading-gif" src="https://i.sstatic.net/kOnzy.gif" alt="Cargando lista de tipo de protagonista" />
                 <span>Loading list...</span>
               </div>
             </div>
@@ -658,37 +648,12 @@
             <textarea id="objetivoActividad" required></textarea>
           </div>
 
-          <div class="form-grid">
-            <div class="field">
-              <label>Carreras involucradas</label>
-              <details id="carrerasSelector" class="multi-select">
-                <summary id="carrerasResumen">Seleccionar carreras</summary>
-                <div id="carrerasOpciones" class="multi-select-options"></div>
-              </details>
-              <div id="carrerasLoading" class="select-list-loading">
-                <img class="loading-gif" src="https://upload.wikimedia.org/wikipedia/commons/c/c7/Loading_2.gif?_=20170503175831" alt="Cargando lista de carreras" />
-                <span>Loading list...</span>
-              </div>
-            </div>
-            <div class="field">
-              <label>Área principal</label>
-              <select id="areaPrincipal" required></select>
-              <div id="areaPrincipalLoading" class="select-list-loading">
-                <img class="loading-gif" src="https://upload.wikimedia.org/wikipedia/commons/c/c7/Loading_2.gif?_=20170503175831" alt="Cargando lista de áreas" />
-                <span>Loading list...</span>
-              </div>
-            </div>
-          </div>
-          <div class="field support-areas-panel">
-            <label>Área de apoyo (opcional)</label>
-            <div class="support-areas-actions">
-              <button id="agregarAreasBtn" type="button">Agregar áreas</button>
-              <span id="areasApoyoEstado" class="muted"></span>
-            </div>
-            <div id="supportAreaEditor" class="support-areas-box hidden"></div>
-            <div id="supportAreaEditorActions" class="support-areas-actions hidden">
-              <button id="guardarOtrasAreasBtn" type="button">Guardar áreas</button>
-              <button id="cancelarOtrasAreasBtn" type="button" class="outline-btn">Cancelar</button>
+          <div class="field">
+            <label>Carreras involucradas</label>
+            <select id="carrerasInvolucradas" multiple size="6"></select>
+            <div id="carrerasLoading" class="select-list-loading">
+              <img class="loading-gif" src="https://i.sstatic.net/kOnzy.gif" alt="Cargando lista de carreras" />
+              <span>Loading list...</span>
             </div>
           </div>
 
@@ -701,7 +666,18 @@
               <button type="submit">Guardar registro</button>
               <p id="result" class="muted"></p>
             </div>
+            <div id="operationLoading" class="select-list-loading hidden">
+              <img class="loading-gif" src="https://i.sstatic.net/kOnzy.gif" alt="Procesando" />
+              <span>Procesando registro...</span>
+            </div>
           </form>
+        </div>
+
+        <div id="activityDetailCard" class="card hidden">
+          <details id="activityDetailAccordion">
+            <summary><h2 style="display:inline;">Detalle de actividad</h2></summary>
+            <div id="activityDetail" style="margin-top: 10px;"></div>
+          </details>
         </div>
       </div>
     </div>
@@ -711,7 +687,6 @@
       let selectedActivityId = '';
       let selectedQuarter = '';
       let pendingSupportAreaSelection = [];
-      let selectedCarreras = [];
       const expandedLists = {
         pendingList: false,
         participantList: false
@@ -897,10 +872,8 @@
 
         Array.from(form.elements).forEach((element) => {
           if (!element || !element.id) return;
-          if (element.id === 'agregarAreasBtn' || element.id === 'guardarOtrasAreasBtn' || element.id === 'cancelarOtrasAreasBtn') return;
           element.disabled = shouldLock;
         });
-        document.getElementById('carrerasSelector').open = false;
 
         submitBtn.disabled = shouldLock;
         registroTitle.textContent = 'Registrar actividad';
@@ -923,6 +896,9 @@
       function refreshSupportAreasState() {
         const btn = document.getElementById('agregarAreasBtn');
         const status = document.getElementById('areasApoyoEstado');
+        if (!btn || !status) {
+          return;
+        }
         const selected = selectedActivityId ? getActivityById(selectedActivityId) : null;
         const owner = selected && selected.esPropietario;
         btn.disabled = !owner;
@@ -941,6 +917,9 @@
       function renderSupportAreaEditor(activity) {
         const box = document.getElementById('supportAreaEditor');
         const actions = document.getElementById('supportAreaEditorActions');
+        if (!box || !actions) {
+          return;
+        }
         if (!activity || !activity.esPropietario) {
           box.classList.add('hidden');
           actions.classList.add('hidden');
@@ -1019,8 +998,17 @@
             <p class="muted">${escapeHtml((activity.areasInvolucradasLista || []).join(', ') || 'Sin áreas involucradas')}</p>
           </div>
           <div class="detail-box" style="margin-top: 10px;">
-            <strong>Otras áreas de apoyo:</strong>
+            <div class="support-areas-actions">
+              <strong>Otras áreas de apoyo:</strong>
+              ${activity.esPropietario ? '<button id="agregarAreasBtn" type="button" class="outline-btn">Agregar áreas</button>' : ''}
+              <span id="areasApoyoEstado" class="muted"></span>
+            </div>
             <p class="muted">${escapeHtml((activity.otrasAreasLista || []).join(', ') || 'Sin áreas de apoyo extra')}</p>
+            <div id="supportAreaEditor" class="support-areas-box hidden"></div>
+            <div id="supportAreaEditorActions" class="support-areas-actions hidden">
+              <button id="guardarOtrasAreasBtn" type="button">Guardar áreas</button>
+              <button id="cancelarOtrasAreasBtn" type="button" class="outline-btn">Cancelar</button>
+            </div>
           </div>
           <div class="detail-box" style="margin-top: 10px;">
             <strong>Indicadores POA:</strong>
@@ -1035,28 +1023,33 @@
 
       document.addEventListener('click', (event) => {
         const btn = event.target.closest('.detail-btn');
-        if (!btn) {
+        if (btn) {
+          const clickedId = btn.dataset.id || '';
+          if (selectedActivityId && selectedActivityId === clickedId) {
+            closeActivityDetail();
+            return;
+          }
+          showActivityDetail(clickedId, { openAccordion: true });
           return;
         }
-        const clickedId = btn.dataset.id || '';
-        if (selectedActivityId && selectedActivityId === clickedId) {
-          closeActivityDetail();
+
+        if (event.target.id === 'agregarAreasBtn') {
+          const selected = selectedActivityId ? getActivityById(selectedActivityId) : null;
+          renderSupportAreaEditor(selected || null);
           return;
         }
-        showActivityDetail(clickedId, { openAccordion: true });
-      });
 
-      document.getElementById('agregarAreasBtn').addEventListener('click', () => {
-        const selected = selectedActivityId ? getActivityById(selectedActivityId) : null;
-        renderSupportAreaEditor(selected || null);
-      });
+        if (event.target.id === 'cancelarOtrasAreasBtn') {
+          const editor = document.getElementById('supportAreaEditor');
+          const actions = document.getElementById('supportAreaEditorActions');
+          if (editor) editor.classList.add('hidden');
+          if (actions) actions.classList.add('hidden');
+          return;
+        }
 
-      document.getElementById('cancelarOtrasAreasBtn').addEventListener('click', () => {
-        document.getElementById('supportAreaEditor').classList.add('hidden');
-        document.getElementById('supportAreaEditorActions').classList.add('hidden');
-      });
-
-      document.getElementById('guardarOtrasAreasBtn').addEventListener('click', () => {
+        if (event.target.id !== 'guardarOtrasAreasBtn') {
+          return;
+        }
         const selected = selectedActivityId ? getActivityById(selectedActivityId) : null;
         if (!selected || !selected.esPropietario) {
           return;
@@ -1078,8 +1071,10 @@
             }
             refreshSupportAreasState();
             showActivityDetail(selected.actividadId, { openAccordion: true });
-            document.getElementById('supportAreaEditor').classList.add('hidden');
-            document.getElementById('supportAreaEditorActions').classList.add('hidden');
+            const editor = document.getElementById('supportAreaEditor');
+            const actions = document.getElementById('supportAreaEditorActions');
+            if (editor) editor.classList.add('hidden');
+            if (actions) actions.classList.add('hidden');
           })
           .withFailureHandler((err) => {
             status.textContent = `Error al guardar áreas: ${err && err.message ? err.message : ''}`;
@@ -1091,29 +1086,18 @@
       });
 
       function renderCarrerasOptions(carreras) {
-        const box = document.getElementById('carrerasOpciones');
+        const select = document.getElementById('carrerasInvolucradas');
         const uniqueCarreras = Array.from(new Set((carreras || []).map((c) => String(c || '').trim()).filter((c) => c !== '')));
         if (!uniqueCarreras.length) {
-          box.innerHTML = '<span class="muted">No hay carreras configuradas.</span>';
+          select.innerHTML = '<option value="">No hay carreras configuradas.</option>';
+          select.disabled = true;
           return;
         }
-        box.innerHTML = uniqueCarreras
-          .map((carrera) => `<label><input type="checkbox" class="carrera-checkbox" value="${escapeHtml(carrera)}" /> ${escapeHtml(carrera)}</label>`)
+        select.innerHTML = uniqueCarreras
+          .map((carrera) => `<option value="${escapeHtml(carrera)}">${escapeHtml(carrera)}</option>`)
           .join('');
+        select.disabled = false;
       }
-
-      function refreshCarrerasSummary() {
-        const summary = document.getElementById('carrerasResumen');
-        summary.textContent = selectedCarreras.length
-          ? selectedCarreras.join(', ')
-          : 'Seleccionar carreras';
-      }
-
-      document.getElementById('carrerasOpciones').addEventListener('change', () => {
-        selectedCarreras = Array.from(document.querySelectorAll('.carrera-checkbox:checked'))
-          .map((input) => input.value);
-        refreshCarrerasSummary();
-      });
 
       function toBase64(file) {
         return new Promise((resolve, reject) => {
@@ -1170,7 +1154,6 @@
 
           setSelectListLoading('tipoActividad', true);
           setSelectListLoading('tipoProtagonista', true);
-          setSelectListLoading('areaPrincipal', true);
           setSelectListLoading('carreras', true);
 
           const canRegister = (data.actividadesPendientes || []).length + (data.actividadesCompletadas || []).length > 0;
@@ -1186,13 +1169,9 @@
           optionize('tipoProtagonista', tipoProtagonistaData.items, { error: tipoProtagonistaData.error });
           setSelectListLoading('tipoProtagonista', false);
 
-          optionize('areaPrincipal', data.areas || [], { emptyMessage: 'No hay áreas disponibles.' });
-          setSelectListLoading('areaPrincipal', false);
           const carrerasData = getListPayload(data.listas, 'carreras');
           renderCarrerasOptions(carrerasData.items || []);
           setSelectListLoading('carreras', false);
-          selectedCarreras = [];
-          refreshCarrerasSummary();
           setFormEditableState(null);
           refreshSupportAreasState();
         })
@@ -1200,7 +1179,6 @@
           setGlobalLoading(false);
           setSelectListLoading('tipoActividad', false);
           setSelectListLoading('tipoProtagonista', false);
-          setSelectListLoading('areaPrincipal', false);
           setSelectListLoading('carreras', false);
           document.getElementById('userInfo').textContent = 'No List.';
           document.getElementById('userInfo').className = 'err';
@@ -1230,6 +1208,19 @@
 
       loadInitialData('');
 
+      document.getElementById('horaActualBtn').addEventListener('click', () => {
+        const now = new Date();
+        const oneHourBefore = new Date(now.getTime() - (60 * 60 * 1000));
+        const pad = (n) => String(n).padStart(2, '0');
+        document.getElementById('fechaActividad').value = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
+        document.getElementById('horaFin').value = `${pad(now.getHours())}:${pad(now.getMinutes())}`;
+        document.getElementById('horaInicio').value = `${pad(oneHourBefore.getHours())}:${pad(oneHourBefore.getMinutes())}`;
+      });
+
+      function setOperationLoading(isLoading) {
+        document.getElementById('operationLoading').classList.toggle('hidden', !isLoading);
+      }
+
       document.getElementById('registroForm').addEventListener('submit', async (event) => {
         event.preventDefault();
         if (!initialData || !initialData.authorized) {
@@ -1238,6 +1229,7 @@
         const result = document.getElementById('result');
         result.textContent = 'Guardando...';
         result.className = 'muted';
+        setOperationLoading(true);
 
         const files = Array.from(document.getElementById('fotos').files || []);
         const fotos = [];
@@ -1251,7 +1243,6 @@
 
         const payload = {
           actividadId: selectedActivityId,
-          estado: document.getElementById('estado').value,
           fechaActividad: document.getElementById('fechaActividad').value,
           horaInicio: document.getElementById('horaInicio').value,
           horaFin: document.getElementById('horaFin').value,
@@ -1263,19 +1254,20 @@
           administrativasMujeres: document.getElementById('administrativasMujeres').value,
           tipoActividad: document.getElementById('tipoActividad').value,
           objetivoActividad: document.getElementById('objetivoActividad').value,
-          carrerasInvolucradas: selectedCarreras.join(', '),
-          areaPrincipal: document.getElementById('areaPrincipal').value,
+          carrerasInvolucradas: Array.from(document.getElementById('carrerasInvolucradas').selectedOptions || []).map((item) => item.value).join(', '),
           areasApoyo: '',
-          tipoProtagonista: document.getElementById('tipoProtagonista').value,
+          tipoProtagonista: Array.from(document.getElementById('tipoProtagonista').selectedOptions || []).map((item) => item.value).join(', '),
           fotos
         };
 
         google.script.run
           .withSuccessHandler((res) => {
+            setOperationLoading(false);
             result.textContent = `Registro guardado (${res.registroId})`;
             result.className = 'ok';
           })
           .withFailureHandler(() => {
+            setOperationLoading(false);
             result.textContent = 'No registrado.';
             result.className = 'err';
           })

@@ -6,17 +6,18 @@ Este repositorio contiene una base funcional para gestionar actividades POA por 
 
 - Autentica al coordinador por correo institucional (`Session.getActiveUser().getEmail()`).
 - Muestra actividades **pendientes** y **realizadas** por coordinación.
-- Permite registrar ejecución/finalización de actividades con:
+- Permite registrar actividades con estado automático (`Pendiente`/`Finalizada`) y:
   - fecha, hora inicio, hora fin,
   - mes y semana (calculados automáticamente),
   - participantes por sexo y rol,
-  - tipo de actividad, objetivo, carreras, área principal, áreas de apoyo, tipo de protagonista,
+  - tipo de actividad, objetivo, carreras, áreas de apoyo, tipo de protagonista (multiselección),
   - evidencias fotográficas.
 - Guarda registros en la hoja `Registros`.
 - Organiza evidencias en Google Drive:
   - Carpeta raíz configurable.
-  - Subcarpeta por indicador POA.
-  - Subcarpeta por coordinación dentro del indicador.
+  - Carpeta anual `EVIDENCIAS POA {AÑO}`.
+  - Subcarpeta por indicador con formato `Indicador {número}`.
+  - Subcarpeta por nombre de actividad, con `Evidencias` y documentos.
 
 ## Estructura de hojas
 
@@ -25,7 +26,7 @@ La función `initializeSheets()` crea (si no existen) estas hojas y cabeceras:
 1. `ActividadesPOA`
    - `anio`, `actividadId`, `coordinacion`, `actividad`, `indicadorPoa`, `ejeEne`, `areasInvolucradas`, `cuatrimestre`
 2. `Coordinadores`
-   - `coordinacion`, `correo`, `activo`
+   - `coordinacion`, `correo`, `nombre`, `activo`
 3. `Registros`
    - Campos de control, tiempos, participantes, metadatos de actividad y URLs de evidencias.
 4. `Listas`
@@ -54,7 +55,7 @@ El sistema incluye un catálogo fijo de áreas para el registro de actividades:
 - Gestión de Calidad
 - TIC
 
-Regla de uso: cada actividad debe tener **una área principal** y puede incluir **múltiples áreas de apoyo**.
+Regla de uso: cada actividad puede incluir **múltiples áreas de apoyo** gestionadas por el dueño de la actividad.
 
 ## Listas esperadas en `Listas`
 

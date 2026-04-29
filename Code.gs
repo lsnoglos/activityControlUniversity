@@ -6,8 +6,7 @@ const SHEETS = {
 };
 
 const DRIVE_ROOT_FOLDER_ID = 'REEMPLAZAR_CON_FOLDER_ID_PRINCIPAL';
-const DRIVE_ROOT_FOLDER_NAME = 'Registro POA';
-const DRIVE_REPORTS_FOLDER_NAME = 'POA_REPORTES';
+const DRIVE_ROOT_FOLDER_NAME_PREFIX = 'EVIDENCIAS POA';
 const INSTITUTIONAL_BLUE = '#1F4E78';
 const AREAS = [
   'Ingeniería Civil',
@@ -39,13 +38,14 @@ const HEADERS = {
     'otrasAreas',
     'cuatrimestre'
   ],
-  COORDINADORES: ['coordinacion', 'correo', 'activo'],
+  COORDINADORES: ['coordinacion', 'correo', 'nombre', 'activo'],
   REGISTROS: [
     'timestampRegistro',
     'registroId',
     'actividadId',
     'coordinacion',
     'correo',
+    'coordinadorNombre',
     'estado',
     'fechaActividad',
     'horaInicio',
@@ -61,7 +61,6 @@ const HEADERS = {
     'tipoActividad',
     'objetivoActividad',
     'carrerasInvolucradas',
-    'areaPrincipal',
     'areasApoyo',
     'tipoProtagonista',
     'actividadNombre',
@@ -130,6 +129,7 @@ function getInitialData(cuatrimestreSolicitado) {
     authorized: true,
     userEmail,
     coordinacion: coordinador.coordinacion,
+    coordinadorNombre: coordinador.nombre || '',
     cuatrimestreActual,
     cuatrimestreSeleccionado,
     actividadesPendientes: actividadesPendientes.map(markCompletion),
@@ -181,7 +181,8 @@ function registrarActividad(payload) {
     actividadId: payload.actividadId,
     coordinacion: coordinador.coordinacion,
     correo: userEmail,
-    estado: payload.estado,
+    coordinadorNombre: coordinador.nombre || '',
+    estado: resolveStatusForRecord_(coordinador.coordinacion, payload.actividadId),
     fechaActividad: payload.fechaActividad,
     horaInicio: payload.horaInicio,
     horaFin: payload.horaFin,
@@ -196,7 +197,6 @@ function registrarActividad(payload) {
     tipoActividad: payload.tipoActividad,
     objetivoActividad: payload.objetivoActividad,
     carrerasInvolucradas: payload.carrerasInvolucradas,
-    areaPrincipal: payload.areaPrincipal,
     areasApoyo: payload.areasApoyo,
     tipoProtagonista: payload.tipoProtagonista,
     actividadNombre: actividad.actividad,
@@ -272,6 +272,14 @@ function getRecordsByCoordination_(coordinacion) {
   return getSheetObjects_(SHEETS.REGISTROS, HEADERS.REGISTROS).filter(
     (row) => row.coordinacion === coordinacion
   );
+}
+
+
+function resolveStatusForRecord_(coordinacion, actividadId) {
+  const hasPending = getRecordsByCoordination_(coordinacion).some(
+    (record) => record.actividadId === actividadId && record.estado === 'Pendiente'
+  );
+  return hasPending ? 'Finalizada' : 'Pendiente';
 }
 
 function getListsDictionary_() {
@@ -433,37 +441,33 @@ function normalizeQuarter_(value, fallbackQuarter) {
 }
 
 function registroFolderNames_(actividad, payload) {
+  const dateValue = new Date(payload.fechaActividad);
+  const year = Utilities.formatDate(
+    String(dateValue) === 'Invalid Date' ? new Date() : dateValue,
+    Session.getScriptTimeZone(),
+    'yyyy'
+  );
   return {
-    indicadorNumero: extractIndicatorNumber_(actividad.indicadorPoa),
-    actividadNombre: sanitizeFolderName_(actividad.actividad || payload.actividadId || 'Actividad'),
-    coordinacion: sanitizeFolderName_(actividad.coordinacion || ''),
-    fechaActividad: payload.fechaActividad
+    evidenciasPoaFolder: `${DRIVE_ROOT_FOLDER_NAME_PREFIX} ${year}`,
+    indicadorLabel: `Indicador ${extractIndicatorNumber_(actividad.indicadorPoa)}`,
+    actividadNombre: sanitizeFolderName_(actividad.actividad || payload.actividadId || 'Actividad')
   };
 }
 
 function prepareActivityStorage_(names, participantEmails) {
   const root = getConfiguredRootFolder_();
-  const registroRoot = getOrCreateSubfolder_(root, DRIVE_ROOT_FOLDER_NAME);
-  const indicatorFolder = getOrCreateSubfolder_(registroRoot, names.indicadorNumero);
+  const evidenciasRoot = getOrCreateSubfolder_(root, names.evidenciasPoaFolder);
+  const indicatorFolder = getOrCreateSubfolder_(evidenciasRoot, names.indicadorLabel);
   const activityFolder = getOrCreateSubfolder_(indicatorFolder, names.actividadNombre);
   const evidenceFolder = getOrCreateSubfolder_(activityFolder, 'Evidencias');
 
-  const dateValue = new Date(names.fechaActividad);
-  const year = Utilities.formatDate(dateValue, Session.getScriptTimeZone(), 'yyyy');
-  const month = Utilities.formatDate(dateValue, Session.getScriptTimeZone(), 'MM');
-  const reportsRoot = getOrCreateSubfolder_(root, DRIVE_REPORTS_FOLDER_NAME);
-  const yearFolder = getOrCreateSubfolder_(reportsRoot, year);
-  const coordFolder = getOrCreateSubfolder_(yearFolder, names.coordinacion || 'Sin coordinación');
-  const monthFolder = getOrCreateSubfolder_(coordFolder, month);
-
   applyEditorsToFolder_(activityFolder, participantEmails);
   applyEditorsToFolder_(evidenceFolder, participantEmails);
-  applyEditorsToFolder_(monthFolder, participantEmails);
 
   return {
     activityFolder,
     evidenceFolder,
-    reportFolder: monthFolder
+    reportFolder: activityFolder
   };
 }
 
@@ -534,6 +538,7 @@ function buildActivityDocument_(body, registro, actividad) {
   appendLabelValue_(body, 'Actividad', registro.actividadNombre);
   appendLabelValue_(body, 'Código actividad', registro.actividadId);
   appendLabelValue_(body, 'Realizada por', registro.coordinacion);
+  appendLabelValue_(body, 'Coordinador responsable', registro.coordinadorNombre || 'N/D');
   appendLabelValue_(body, 'Fecha', registro.fechaActividad);
   appendLabelValue_(body, 'Hora', `${registro.horaInicio} a ${registro.horaFin}`);
   appendLabelValue_(body, 'Estado', registro.estado);
@@ -541,7 +546,6 @@ function buildActivityDocument_(body, registro, actividad) {
   appendSectionTitle_(body, '2. PARTICIPACIÓN');
   appendLabelValue_(body, 'Coordinaciones participantes', joinNonEmpty_([actividad.areasInvolucradas, actividad.otrasAreas], ' | '));
   appendLabelValue_(body, 'Carreras participantes', registro.carrerasInvolucradas);
-  appendLabelValue_(body, 'Área principal', registro.areaPrincipal);
   appendLabelValue_(body, 'Áreas de apoyo', registro.areasApoyo);
 
   appendSectionTitle_(body, '3. INDICADOR');
@@ -759,13 +763,11 @@ function getMonthAndWeek_(dateValue) {
 function validatePayload_(payload) {
   const required = [
     'actividadId',
-    'estado',
     'fechaActividad',
     'horaInicio',
     'horaFin',
     'tipoActividad',
-    'objetivoActividad',
-    'areaPrincipal'
+    'objetivoActividad'
   ];
 
   required.forEach((field) => {
