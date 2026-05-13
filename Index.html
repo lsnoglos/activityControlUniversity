@@ -62,6 +62,13 @@
         backdrop-filter: blur(1.2px);
       }
 
+
+      .form-box {
+        border: 1px solid var(--border);
+        border-radius: 12px;
+        padding: 12px;
+        background: var(--surface-muted);
+      }
       .hero {
         display: flex;
         flex-wrap: wrap;
@@ -640,23 +647,10 @@
         <div id="registroCard" class="card hidden">
           <h2 id="registroTitle">Registrar actividad</h2>
           <form id="registroForm">
-          <div class="form-grid">
-            <div class="field">
-              <label>Fecha</label>
-              <input id="fechaActividad" type="date" required />
-            </div>
-            <div class="field">
-              <label>Hora inicio</label>
-              <input id="horaInicio" type="time" required />
-            </div>
-            <div class="field">
-              <label>Hora fin</label>
-              <input id="horaFin" type="time" required />
-            </div>
-            <div class="field">
-              <label>&nbsp;</label>
-              <button id="horaActualBtn" type="button">Hora actual</button>
-            </div>
+          <div class="form-grid" style="grid-template-columns: repeat(3, minmax(0, 1fr));">
+            <div class="field"><label>Fecha</label><input id="fechaActividad" type="date" required /></div>
+            <div class="field"><label>Hora inicio</label><input id="horaInicio" type="time" required /></div>
+            <div class="field"><label>Hora fin</label><input id="horaFin" type="time" required /></div>
           </div>
 
           <div class="form-grid stats-row">
@@ -666,6 +660,12 @@
             <div class="field"><label># docentes mujeres</label><input id="docentesMujeres" type="number" min="0" value="0" /></div>
             <div class="field"><label># administrativos hombres</label><input id="administrativosHombres" type="number" min="0" value="0" /></div>
             <div class="field"><label># administrativas mujeres</label><input id="administrativasMujeres" type="number" min="0" value="0" /></div>
+          </div>
+
+          <div class="form-box">
+          <div class="field">
+            <label>Objetivo</label>
+            <textarea id="objetivoActividad" required></textarea>
           </div>
 
           <div class="form-grid">
@@ -678,6 +678,17 @@
               </div>
             </div>
             <div class="field">
+              <label>Área de conocimiento</label>
+              <select id="areaConocimiento" required></select>
+              <div id="areaConocimientoLoading" class="select-list-loading">
+                <img class="loading-gif" src="https://i.sstatic.net/kOnzy.gif" alt="Cargando lista de área de conocimiento" />
+                <span>Loading list...</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="form-grid">
+            <div class="field">
               <label>Tipo de protagonista</label>
               <div class="multi-select" data-multiselect="tipoProtagonista">
                 <select id="tipoProtagonista" class="multi-select-native" multiple size="4"></select>
@@ -689,24 +700,19 @@
                 <span>Loading list...</span>
               </div>
             </div>
-          </div>
-
-          <div class="field">
-            <label>Objetivo</label>
-            <textarea id="objetivoActividad" required></textarea>
-          </div>
-
-          <div class="field">
-            <label>Carreras involucradas</label>
-            <div class="multi-select" data-multiselect="carrerasInvolucradas">
-              <select id="carrerasInvolucradas" class="multi-select-native" multiple size="6"></select>
-              <button type="button" class="multi-select-toggle" data-ms-toggle>Selecciona opciones</button>
-              <div class="multi-select-options" data-ms-options></div>
+            <div class="field">
+              <label>Carreras involucradas</label>
+              <div class="multi-select" data-multiselect="carrerasInvolucradas">
+                <select id="carrerasInvolucradas" class="multi-select-native" multiple size="6"></select>
+                <button type="button" class="multi-select-toggle" data-ms-toggle>Selecciona opciones</button>
+                <div class="multi-select-options" data-ms-options></div>
+              </div>
+              <div id="carrerasLoading" class="select-list-loading">
+                <img class="loading-gif" src="https://i.sstatic.net/kOnzy.gif" alt="Cargando lista de carreras" />
+                <span>Loading list...</span>
+              </div>
             </div>
-            <div id="carrerasLoading" class="select-list-loading">
-              <img class="loading-gif" src="https://i.sstatic.net/kOnzy.gif" alt="Cargando lista de carreras" />
-              <span>Loading list...</span>
-            </div>
+          </div>
           </div>
 
           <div class="field">
@@ -992,6 +998,7 @@
         }
         registroTitle.textContent = `Registrar actividad ${activity.actividadId}`;
         registroCard.classList.remove('hidden');
+        applyCurrentActivityDateTimeDefaults();
       }
 
       function refreshSupportAreasState() {
@@ -1254,6 +1261,7 @@
           setListLoading('participantList', false);
 
           setSelectListLoading('tipoActividad', true);
+          setSelectListLoading('areaConocimiento', true);
           setSelectListLoading('tipoProtagonista', true);
           setSelectListLoading('carreras', true);
 
@@ -1265,6 +1273,10 @@
           const tipoActividadData = getListPayload(data.listas, 'tipoActividad');
           optionize('tipoActividad', tipoActividadData.items, { error: tipoActividadData.error });
           setSelectListLoading('tipoActividad', false);
+
+          const areaConocimientoData = getListPayload(data.listas, 'areaConocimiento');
+          optionize('areaConocimiento', areaConocimientoData.items, { error: areaConocimientoData.error });
+          setSelectListLoading('areaConocimiento', false);
 
           const tipoProtagonistaData = getListPayload(data.listas, 'tipoProtagonista');
           optionize('tipoProtagonista', tipoProtagonistaData.items, { error: tipoProtagonistaData.error });
@@ -1279,6 +1291,7 @@
         .withFailureHandler(() => {
           setGlobalLoading(false);
           setSelectListLoading('tipoActividad', false);
+          setSelectListLoading('areaConocimiento', false);
           setSelectListLoading('tipoProtagonista', false);
           setSelectListLoading('carreras', false);
           document.getElementById('userInfo').textContent = 'No List.';
@@ -1312,14 +1325,14 @@
 
       loadInitialData('');
 
-      document.getElementById('horaActualBtn').addEventListener('click', () => {
+      function applyCurrentActivityDateTimeDefaults() {
         const now = new Date();
         const oneHourBefore = new Date(now.getTime() - (60 * 60 * 1000));
         const pad = (n) => String(n).padStart(2, '0');
         document.getElementById('fechaActividad').value = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
         document.getElementById('horaFin').value = `${pad(now.getHours())}:${pad(now.getMinutes())}`;
         document.getElementById('horaInicio').value = `${pad(oneHourBefore.getHours())}:${pad(oneHourBefore.getMinutes())}`;
-      });
+      }
 
       function setOperationLoading(isLoading) {
         document.getElementById('operationLoading').classList.toggle('hidden', !isLoading);

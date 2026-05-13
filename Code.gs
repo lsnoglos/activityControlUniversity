@@ -88,7 +88,7 @@ function initializeSheets() {
   ensureSheetWithHeaders_(ss, SHEETS.ACTIVIDADES, HEADERS.ACTIVIDADES);
   ensureSheetWithHeaders_(ss, SHEETS.COORDINADORES, HEADERS.COORDINADORES);
   ensureSheetWithHeaders_(ss, SHEETS.REGISTROS, HEADERS.REGISTROS);
-  ensureSheetWithHeaders_(ss, SHEETS.LISTAS, ['tipoActividad', 'tipoProtagonista', 'indicadorPoa', 'indicadorEstrategia', 'carreras']);
+  ensureSheetWithHeaders_(ss, SHEETS.LISTAS, ['tipoActividad', 'tipoProtagonista', 'indicadorPoa', 'indicadorEstrategia', 'carreras', 'areaConocimiento']);
 }
 
 function getInitialData(cuatrimestreSolicitado) {
@@ -283,7 +283,7 @@ function resolveStatusForRecord_(coordinacion, actividadId) {
 }
 
 function getListsDictionary_() {
-  const requiredLists = ['tipoActividad', 'tipoProtagonista', 'indicadorPoa', 'indicadorEstrategia', 'carreras'];
+  const requiredLists = ['tipoActividad', 'tipoProtagonista', 'indicadorPoa', 'indicadorEstrategia', 'carreras', 'areaConocimiento'];
   const defaultError = 'Error list.';
   const result = requiredLists.reduce((acc, key) => {
     acc[key] = { items: [], error: null };
